@@ -17,9 +17,12 @@
 | 41605366212 | `aab7a2c` | Success | Baseline scaffold build before the UI batch. |
 | 41610644413 | `d41c346` | Failure | Kotlin syntax error in `TournamentRepository` `in.()` filter. |
 | 41611240923 | `1b9b88e` | Failure | Unresolved `GlassActionRow` imports, chip/trailing-lambda signature mismatches, missing `contentOrNull` import. |
-| final run | see Actions | expected success | UI/API fixes applied. |
+| 41611975745 | `ed6d60a` | Failure | Two fully-qualified `designsystem.GlassActionRow` references remained. |
+| 41612532996 | `af15fd0` | Failure | Main compiled; one JVM assertion expected `null` instead of the em-dash placeholder. |
+| **41612882092** | **`e9f9556`** | **Success** | Unit tests, lint and `assembleDebug` all passed; APK artifact uploaded. |
 
-The APK is uploaded by the successful run as `hmx-arena-debug-apk`.
+The APK is uploaded by the successful run as `hmx-arena-debug-apk`
+(artifact id `13219867704`, 20,040,623 bytes).
 
 ## 3. JVM unit tests
 
@@ -96,6 +99,7 @@ the CI build proves compilation, not runtime behaviour.
 
 ## 9. Verdict
 
-Automated build, unit tests, lint and packaging are expected green on the final
-run. The backend security contract is independently verified by the RLS suite.
-Remaining risk is runtime/UI behaviour that only a device smoke test can catch.
+Automated build, unit tests, lint and packaging are green on run `41612882092`
+(commit `e9f9556`). The backend security contract is independently verified by
+the RLS suite. Remaining risk is runtime/UI behaviour that only a device smoke
+test can catch.

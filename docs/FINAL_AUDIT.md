@@ -104,7 +104,7 @@ legal documents rendered by one screen.
 | --- | --- |
 | JVM unit tests | 3 files, validation/formatting/rules |
 | RLS SQL tests | 18/18 passing |
-| CI compile + lint + APK | Green after fixes (see FINAL_TEST_REPORT for run id) |
+| CI compile + lint + APK | Green on run `41612882092`, commit `e9f9556` |
 | Instrumented UI tests | **Not present** |
 | Payment tests | **Not applicable / disabled** |
 
