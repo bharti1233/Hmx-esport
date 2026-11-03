@@ -40,7 +40,7 @@ class FormatTest {
         assertNull(Format.parseInstant(null))
         assertNull(Format.parseInstant(""))
         assertNull(Format.parseInstant("not-a-date"))
-        assertNull(Format.dateTime("not-a-date"))
+        assertEquals("—", Format.dateTime("not-a-date"))
         assertEquals("—", Format.countdown(null))
         assertNotNull(Format.parseInstant("2026-11-03T10:00:00Z"))
         assertTrue(Format.date("2026-11-03T10:00:00Z").isNotBlank())
