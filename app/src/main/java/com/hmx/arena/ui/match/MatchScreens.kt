@@ -360,7 +360,7 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
                     if (data.tournament != null) {
                         item {
                             GlassSurface(Modifier.fillMaxWidth()) {
-                                com.hmx.arena.core.designsystem.GlassActionRow(
+                                GlassActionRow(
                                     title = "Open tournament",
                                     icon = Icons.Rounded.EmojiEvents,
                                     onClick = { nav.navigate(Routes.tournament(data.tournament.id)) },

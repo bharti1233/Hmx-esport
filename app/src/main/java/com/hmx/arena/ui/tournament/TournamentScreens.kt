@@ -620,7 +620,7 @@ private fun DetailStat(label: String, value: String, modifier: Modifier = Modifi
 
 @Composable
 private fun ActionLine(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    com.hmx.arena.core.designsystem.GlassActionRow(
+    GlassActionRow(
         title = title,
         icon = icon,
         onClick = onClick,
