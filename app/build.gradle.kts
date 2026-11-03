@@ -123,12 +123,6 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.auth)
-    implementation(libs.supabase.storage)
-    implementation(libs.supabase.realtime)
-    implementation(libs.ktor.client.okhttp)
-
     implementation(libs.retrofit)
     implementation(libs.retrofit.serialization)
     implementation(libs.okhttp)

@@ -24,6 +24,25 @@ on conflict (id) do nothing;
 delete from public.registrations
 where user_id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222');
 
+insert into public.tournaments
+    (slug, title, game, mode, entry_type, prize_pool_paise, max_slots, min_team_size, max_team_size,
+     status, registration_opens_at, registration_closes_at, starts_at, description, map)
+values
+    ('rls-test-cup', 'RLS Test Cup', 'free_fire', 'solo', 'free', 0, 10, 1, 1,
+     'registration_open', now() - interval '1 hour', now() + interval '1 day', now() + interval '2 days',
+     'Throwaway tournament used by the RLS regression suite.', 'Bermuda')
+on conflict (slug) do nothing;
+
+insert into public.tournament_eligibility (tournament_id, min_level, min_points, requires_game_account, allowed_regions)
+select id, 1, 0, true, array['IN']::text[] from public.tournaments where slug = 'rls-test-cup'
+on conflict (tournament_id) do nothing;
+
+insert into public.matches (tournament_id, round, name, status, scheduled_at, check_in_opens_at, map, mode, max_teams)
+select t.id, 1, 'RLS Match', 'scheduled', t.starts_at, t.starts_at - interval '30 minutes', t.map, 'solo', 10
+from public.tournaments t
+where t.slug = 'rls-test-cup'
+  and not exists (select 1 from public.matches m where m.tournament_id = t.id);
+
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', false);
 
@@ -105,10 +124,10 @@ declare
 begin
     begin
         v_reg := public.register_for_tournament(
-            (select id from public.tournaments where slug = 'solo-rush'), null);
+            (select id from public.tournaments where slug = 'rls-test-cup'), null);
         select count(*) into v_count from public.registrations
         where user_id = '11111111-1111-4111-8111-111111111111'
-          and tournament_id = (select id from public.tournaments where slug = 'solo-rush');
+          and tournament_id = (select id from public.tournaments where slug = 'rls-test-cup');
         insert into rls_results (check_name, outcome)
         values ('register solo tournament', case when v_count = 1 then 'pass' else 'FAIL' end);
 
@@ -240,6 +259,8 @@ where match_id in (
     join public.registrations r on r.id = mp.registration_id
     where r.user_id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222')
 );
+
+delete from public.tournaments where slug = 'rls-test-cup';
 
 delete from auth.users
 where id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222');
