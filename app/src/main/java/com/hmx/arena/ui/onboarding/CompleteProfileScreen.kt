@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassScreenBackground
 import com.hmx.arena.core.designsystem.HmxColor
@@ -45,7 +44,8 @@ import com.hmx.arena.core.model.PlayerGameAccount
 import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.util.Validation
 import com.hmx.arena.data.repository.PlayerRepository
-import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.HmxGlassButton
+import com.hmx.arena.ui.common.HmxGlassTextField
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
 import com.hmx.arena.ui.common.hmxMessage
@@ -136,16 +136,17 @@ class CompleteProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _ui.update { it.copy(saving = true, error = null) }
             runCatching {
-                if (withGameAccount) {
-                    player.saveGameAccount(
-                        existing = existing,
-                        ign = current.ign.trim(),
-                        gameUid = current.gameUid.trim(),
-                        level = current.level.toIntOrNull(),
-                    )
-                }
-                player.updateProfile(current.displayName.trim(), null, "IN")
-                player.completeOnboarding()
+                // Single transactional RPC: profile + game account + welcome
+                // notification. No sequential writes, no service role.
+                player.completeOnboarding(
+                    displayName = current.displayName.trim(),
+                    bio = null,
+                    region = "IN",
+                    gameAccountId = existing?.id,
+                    ign = if (withGameAccount) current.ign.trim() else null,
+                    gameUid = if (withGameAccount) current.gameUid.trim() else null,
+                    level = if (withGameAccount) current.level.toIntOrNull() else null,
+                )
             }
                 .onSuccess { _ui.update { it.copy(saving = false, done = true) } }
                 .onFailure { e -> _ui.update { it.copy(saving = false, error = e.hmxMessage()) } }
@@ -208,7 +209,7 @@ fun CompleteProfileScreen(
             if (ui.loading) {
                 com.hmx.arena.ui.common.LoadingBlock("Loading your profile")
             } else {
-                GlassTextField(
+                HmxGlassTextField(
                     value = ui.displayName,
                     onValueChange = viewModel::setDisplayName,
                     label = "Display name",
@@ -217,14 +218,14 @@ fun CompleteProfileScreen(
                 Spacer(Modifier.height(20.dp))
                 Text("FREE FIRE ACCOUNT", style = MaterialTheme.typography.labelSmall, color = HmxColor.InkTertiary)
                 Spacer(Modifier.height(10.dp))
-                GlassTextField(
+                HmxGlassTextField(
                     value = ui.ign,
                     onValueChange = viewModel::setIgn,
                     label = "In-game name (IGN)",
                     error = ui.ignError,
                 )
                 Spacer(Modifier.height(14.dp))
-                GlassTextField(
+                HmxGlassTextField(
                     value = ui.gameUid,
                     onValueChange = viewModel::setUid,
                     label = "Free Fire UID",
@@ -232,7 +233,7 @@ fun CompleteProfileScreen(
                     error = ui.uidError,
                 )
                 Spacer(Modifier.height(14.dp))
-                GlassTextField(
+                HmxGlassTextField(
                     value = ui.level,
                     onValueChange = viewModel::setLevel,
                     label = "In-game level",
@@ -250,14 +251,14 @@ fun CompleteProfileScreen(
                     InlineError(ui.error!!)
                 }
                 Spacer(Modifier.height(24.dp))
-                GlassButton(
+                HmxGlassButton(
                     text = "Enter the arena",
                     onClick = { viewModel.submit(withGameAccount = true) },
                     loading = ui.saving,
                     variant = GlassButtonVariant.Ink,
                 )
                 Spacer(Modifier.height(12.dp))
-                GlassButton(
+                HmxGlassButton(
                     text = "Add game account later",
                     onClick = { viewModel.submit(withGameAccount = false) },
                     variant = GlassButtonVariant.Secondary,

@@ -52,8 +52,9 @@ fun GlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) {
     GlassSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = HmxShapes.pill,
-        fill = HmxColor.GlassStrong,
+        fill = HmxColor.White.copy(alpha = 0.58f),
         elevation = 18.dp,
+        refractive = true,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),

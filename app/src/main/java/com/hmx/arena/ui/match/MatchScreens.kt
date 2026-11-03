@@ -82,7 +82,7 @@ import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.common.rememberPickedImage
 import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
-import com.hmx.arena.ui.shell.GlassBottomBar
+import com.hmx.arena.ui.common.HmxGlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -129,7 +129,7 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
                 modifier = Modifier.clickable { viewModel.load() }.padding(10.dp),
             )
         },
-        bottomBar = { GlassBottomBar(Routes.MATCHES) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.MATCHES) { nav.openTab(it) } },
     ) {
         when {
             ui.loading && ui.items.isEmpty() -> LoadingBlock("Loading your matches")

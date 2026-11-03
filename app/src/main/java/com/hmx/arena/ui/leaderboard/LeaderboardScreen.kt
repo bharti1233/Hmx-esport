@@ -43,7 +43,8 @@ import com.hmx.arena.core.model.LeaderboardRow
 import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.ui.common.EmptyBlock
-import com.hmx.arena.ui.common.GlassAvatar
+import com.hmx.arena.ui.common.HmxGlassBottomBar
+import com.hmx.arena.ui.common.HmxGlassLeaderboardItem
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.LoadingBlock
@@ -119,7 +120,7 @@ fun LeaderboardScreen(nav: NavHostController, viewModel: LeaderboardViewModel = 
                     .padding(10.dp),
             )
         },
-        bottomBar = { GlassBottomBar(Routes.LEADERBOARD) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.LEADERBOARD) { nav.openTab(it) } },
     ) {
         Column(Modifier.fillMaxSize()) {
             Row(
@@ -165,62 +166,11 @@ fun LeaderboardList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(rows, key = { it.entityId + it.rankNo }) { row ->
-            val isTop = row.rankNo <= 3
-            GlassSurface(
-                Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (clickable) {
-                            Modifier.clickable(role = Role.Button) { onPlayerClick(row.entityId) }
-                        } else {
-                            Modifier
-                        },
-                    ),
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(if (isTop) HmxColor.Ink else HmxColor.CanvasTint),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            row.rankNo.toString(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isTop) HmxColor.White else HmxColor.InkSecondary,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    GlassAvatar(row.avatarUrl, row.name, 40.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            row.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = HmxColor.Ink,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            row.subtitle ?: "${row.matches} matches · ${row.wins} wins",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = HmxColor.InkTertiary,
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            Format.points(row.points),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = HmxColor.Ink,
-                        )
-                        Text("points", style = MaterialTheme.typography.labelSmall, color = HmxColor.InkTertiary)
-                    }
-                }
-            }
+            HmxGlassLeaderboardItem(
+                row = row,
+                clickable = clickable,
+                onClick = { onPlayerClick(row.entityId) },
+            )
         }
     }
 }

@@ -255,13 +255,36 @@ class PlayerRepository @Inject constructor(
         Dispute.serializer(),
     )
 
-    suspend fun completeOnboarding() {
-        remote.update(
-            "profiles",
-            mapOf("id" to "eq.${uid()}"),
-            buildJsonObject { put("onboarding_completed", true) },
-        )
-    }
+    /**
+     * Completes onboarding in a single transactional server call.
+     *
+     * The previous client performed three sequential writes; the profile PATCH
+     * used return=representation, which made PostgREST SELECT columns that are
+     * revoked from authenticated (email/phone), surfacing as
+     * "You do not have permission to do that." complete_onboarding() owns the
+     * whole write set, checks auth.uid() and returns the updated profile.
+     */
+    suspend fun completeOnboarding(
+        displayName: String,
+        bio: String?,
+        region: String,
+        gameAccountId: String?,
+        ign: String?,
+        gameUid: String?,
+        level: Int?,
+    ): Profile = remote.rpc(
+        "complete_onboarding",
+        buildJsonObject {
+            put("p_display_name", displayName)
+            put("p_bio", bio)
+            put("p_region", region)
+            put("p_game_account_id", gameAccountId)
+            put("p_ign", ign)
+            put("p_game_uid", gameUid)
+            put("p_level", level)
+        },
+        Profile.serializer(),
+    )
 
     private fun uid(): String =
         session.snapshotUserId() ?: throw ApiException("Please sign in again.")

@@ -60,11 +60,19 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.ui.draw.scale
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
 
 /**
- * A frosted translucent surface. Real-time blur is intentionally avoided:
- * translucent fills, a white top highlight and a hairline border read as glass
- * on entry-level hardware without the GPU cost of `Modifier.blur`.
+ * A frosted translucent surface.
+ *
+ * By default it uses a cheap translucent fill, which is what list items use so
+ * scrolling never pays for per-row blur. Chrome surfaces (top/bottom bars,
+ * sheets, dialogs, hero cards) pass [refractive] = true to sample the Backdrop
+ * layer recorded by [HmxGlassHost]. On devices where effects are unavailable
+ * the same call silently falls back to the fill, so layout and behaviour are
+ * identical.
  */
 @Composable
 fun GlassSurface(
@@ -74,27 +82,61 @@ fun GlassSurface(
     borderColor: Color = HmxColor.Hairline,
     elevation: Dp = HmxElevation.card,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    refractive: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            .shadow(
-                elevation = elevation,
-                shape = shape,
-                ambientColor = HmxColor.Shadow,
-                spotColor = HmxColor.Shadow,
-                clip = false,
-            )
-            .clip(shape)
-            .background(
-                brush = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = fill.alpha), fill),
-                ),
-            )
-            .border(HmxDimens.hairline, borderColor, shape)
-            .padding(contentPadding),
-    ) {
-        content()
+    val backdrop = LocalHmxBackdrop.current
+    val useBackdrop = refractive &&
+        backdrop != null &&
+        LocalHmxGlassEffects.current &&
+        fill.alpha > 0.02f
+
+    val base = modifier
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            ambientColor = HmxColor.Shadow,
+            spotColor = HmxColor.Shadow,
+            clip = false,
+        )
+        .clip(shape)
+
+    if (useBackdrop) {
+        Box(
+            modifier = base
+                .drawBackdrop(
+                    backdrop = backdrop!!,
+                    shape = { shape },
+                    effects = {
+                        blur(radius = 18.dp.toPx())
+                        lens(
+                            refractionHeight = 14.dp.toPx(),
+                            refractionAmount = 9.dp.toPx(),
+                            depthEffect = true,
+                        )
+                    },
+                    onDrawSurface = {
+                        drawRect(fill.copy(alpha = minOf(fill.alpha, 0.62f)))
+                    },
+                )
+                .border(HmxDimens.hairline, borderColor, shape)
+                .padding(contentPadding),
+        ) {
+            content()
+        }
+    } else {
+        Box(
+            modifier = base
+                .background(
+                    brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = fill.alpha), fill),
+                    ),
+                )
+                .border(HmxDimens.hairline, borderColor, shape)
+                .padding(contentPadding),
+        ) {
+            content()
+        }
     }
 }
 
@@ -175,27 +217,40 @@ fun GlassTopBar(
     modifier: Modifier = Modifier,
     actions: @Composable () -> Unit = {},
 ) {
-    Row(
-        modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    GlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        shape = HmxShapes.pill,
+        fill = Color.White.copy(alpha = 0.46f),
+        borderColor = HmxColor.Hairline,
+        elevation = 0.dp,
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        refractive = true,
     ) {
-        if (onBack != null) {
-            GlassIconButton(
-                icon = Icons.Rounded.ArrowBack,
-                contentDescription = "Back",
-                onClick = onBack,
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onBack != null) {
+                GlassIconButton(
+                    icon = Icons.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    onClick = onBack,
+                )
+                Spacer(Modifier.width(10.dp))
+            } else {
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = HmxColor.Ink,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
+            actions()
+            Spacer(Modifier.width(4.dp))
         }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = HmxColor.Ink,
-            modifier = Modifier.weight(1f),
-        )
-        actions()
     }
 }
 

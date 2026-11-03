@@ -86,7 +86,7 @@ import com.hmx.arena.ui.common.UiState
 import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
-import com.hmx.arena.ui.shell.GlassBottomBar
+import com.hmx.arena.ui.common.HmxGlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -163,7 +163,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                 modifier = Modifier.clickable { viewModel.load() }.padding(10.dp),
             )
         },
-        bottomBar = { GlassBottomBar(Routes.TOURNAMENTS) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.TOURNAMENTS) { nav.openTab(it) } },
     ) {
         LazyColumn(
             Modifier.fillMaxSize(),

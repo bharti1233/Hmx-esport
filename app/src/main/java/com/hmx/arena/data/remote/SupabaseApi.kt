@@ -83,8 +83,13 @@ interface RestApi {
         @Path("table") table: String,
         @QueryMap params: Map<String, String>,
         @Body body: kotlinx.serialization.json.JsonObject,
-        @Header("Prefer") prefer: String = "return=representation",
-    ): kotlinx.serialization.json.JsonElement
+        // return=representation makes PostgREST perform SELECT * on the table.
+        // Column-level grants (0007) intentionally hide contact columns from
+        // authenticated users, so that produced a spurious 42501. Callers that
+        // need the row read it back through the appropriate view or RPC.
+        // A minimal response is 204 with no body, hence Response<Unit>.
+        @Header("Prefer") prefer: String = "return=minimal",
+    ): retrofit2.Response<Unit>
 
     @HEAD("rest/v1/{table}")
     suspend fun head(
@@ -97,8 +102,8 @@ interface RestApi {
     suspend fun insert(
         @Path("table") table: String,
         @Body body: kotlinx.serialization.json.JsonElement,
-        @Header("Prefer") prefer: String = "return=representation",
-    ): kotlinx.serialization.json.JsonElement
+        @Header("Prefer") prefer: String = "return=minimal",
+    ): retrofit2.Response<Unit>
 
     @DELETE("rest/v1/{table}")
     suspend fun delete(
@@ -199,6 +204,14 @@ private val DB_MESSAGES = mapOf(
     "invalid_team_name" to "Team name must be at least 3 characters.",
     "invalid_team_tag" to "Team tag must be 2-5 characters.",
     "invalid_game" to "Choose a supported game.",
+    "invalid_display_name" to "Display name must be 2-30 characters.",
+    "invalid_bio" to "Your bio must be 160 characters or fewer.",
+    "invalid_region" to "Choose a valid region.",
+    "invalid_ign" to "Enter your in-game name (2-24 characters).",
+    "invalid_game_uid" to "Enter the UID shown in your Free Fire profile.",
+    "invalid_level" to "Enter a level between 1 and 100.",
+    "invalid_game_identity" to "That game account does not belong to you.",
+    "profile_not_found" to "Your profile could not be found. Sign in again.",
 )
 
 fun mapDbMessage(raw: String?): String {

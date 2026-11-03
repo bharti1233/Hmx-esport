@@ -62,6 +62,7 @@ import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.HmxGlassNotificationCard
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineSuccess
@@ -149,48 +150,7 @@ fun NotificationsScreen(nav: NavHostController, viewModel: NotificationsViewMode
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(ui.items, key = { it.id }) { item ->
-                    GlassSurface(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (item.unread) {
-                                    Box(
-                                        Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(HmxColor.Ink),
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                                Text(
-                                    item.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = HmxColor.Ink,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                if (item.unread) {
-                                    Text(
-                                        "New",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = HmxColor.InkTertiary,
-                                    )
-                                }
-                            }
-                            if (item.body.isNotBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    item.body,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = HmxColor.InkSecondary,
-                                )
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                Format.relative(item.createdAt),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = HmxColor.InkTertiary,
-                            )
-                        }
-                    }
+                    HmxGlassNotificationCard(item = item)
                 }
             }
         }

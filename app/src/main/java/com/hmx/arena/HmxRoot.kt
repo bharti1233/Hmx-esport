@@ -18,6 +18,7 @@ import androidx.lifecycle.viewModelScope
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.remote.SessionState
 import com.hmx.arena.data.repository.AuthRepository
+import com.hmx.arena.core.designsystem.HmxGlassHost
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.ui.auth.AuthFlow
 import com.hmx.arena.ui.auth.RecoveryResetScreen
@@ -99,7 +100,8 @@ fun HmxRoot(
         processingLink = false
     }
 
-    when {
+    HmxGlassHost {
+        when {
         sessionState is SessionState.Loading || processingLink -> LoadingScreen()
         recoveryMode -> RecoveryResetScreen(
             tokenHash = recoveryToken,
@@ -112,6 +114,7 @@ fun HmxRoot(
         sessionState is SessionState.SignedIn -> {
             val userId = (sessionState as SessionState.SignedIn).userId
             SignedInGate(userId = userId)
+        }
         }
     }
 

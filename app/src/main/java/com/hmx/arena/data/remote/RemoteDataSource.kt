@@ -83,8 +83,14 @@ class RemoteDataSource @Inject constructor(
         Unit
     }
 
-    suspend fun insert(table: String, body: JsonObject): JsonElement = guardApi {
-        rest.insert(table, body)
+    suspend fun insert(table: String, body: JsonObject) = guardApi {
+        // return=minimal yields 204 No Content; do not try to decode a row.
+        val response = rest.insert(table, body)
+        if (!response.isSuccessful) {
+            val message = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(mapDbMessage(parseErrorMessage(message ?: "")), message)
+        }
+        Unit
     }
 
     suspend fun delete(table: String, params: Map<String, String>) = guardApi {
@@ -97,7 +103,11 @@ class RemoteDataSource @Inject constructor(
     }
 
     suspend fun update(table: String, params: Map<String, String>, body: JsonObject) = guardApi {
-        rest.update(table, params, body)
+        val response = rest.update(table, params, body)
+        if (!response.isSuccessful) {
+            val message = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(mapDbMessage(parseErrorMessage(message ?: "")), message)
+        }
         Unit
     }
 

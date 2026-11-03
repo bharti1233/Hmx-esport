@@ -68,7 +68,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hmx.arena.core.designsystem.GlassSurface
-import com.hmx.arena.core.designsystem.GlassTopBar
 import com.hmx.arena.core.designsystem.GlassScaffold
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
@@ -107,7 +106,7 @@ fun HmxPage(
     content: @Composable () -> Unit,
 ) {
     GlassScaffold(
-        topBar = { GlassTopBar(title = title, onBack = onBack, actions = actions) },
+        topBar = { HmxGlassTopBar(title = title, onBack = onBack, actions = actions) },
         bottomBar = bottomBar,
     ) {
         content()

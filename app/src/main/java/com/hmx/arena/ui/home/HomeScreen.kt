@@ -20,10 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +42,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
-import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassIconButton
 import com.hmx.arena.core.designsystem.GlassSectionHeader
@@ -59,6 +58,9 @@ import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.data.repository.MyMatch
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
+import com.hmx.arena.ui.common.HmxGlassBottomBar
+import com.hmx.arena.ui.common.HmxGlassButton
+import com.hmx.arena.ui.common.HmxGlassCard
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.LoadingBlock
 import com.hmx.arena.ui.common.MatchCard
@@ -154,7 +156,7 @@ fun HomeScreen(
                 }
             }
         },
-        bottomBar = { GlassBottomBar(Routes.HOME) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.HOME) { nav.openTab(it) } },
     ) {
         when {
             state.loading && data == null -> LoadingBlock("Loading your arena")
@@ -171,11 +173,23 @@ fun HomeScreen(
                     }
                 }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        QuickTile("Wallet", Icons.Rounded.Wallet, Modifier.weight(1f)) { nav.navigate(Routes.WALLET) }
-                        QuickTile("My team", Icons.Rounded.Group, Modifier.weight(1f)) { nav.navigate(Routes.TEAM) }
-                        QuickTile("Refer", Icons.Rounded.CardGiftcard, Modifier.weight(1f)) { nav.navigate(Routes.REFERRAL) }
-                        QuickTile("Support", Icons.Rounded.HelpOutline, Modifier.weight(1f)) { nav.navigate(Routes.SUPPORT) }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            QuickTile("Tournaments", Icons.Rounded.EmojiEvents, Modifier.weight(1f)) {
+                                nav.openTab(Routes.TOURNAMENTS)
+                            }
+                            QuickTile("My matches", Icons.Rounded.SportsEsports, Modifier.weight(1f)) {
+                                nav.openTab(Routes.MATCHES)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            QuickTile("Wallet", Icons.Rounded.Wallet, Modifier.weight(1f)) {
+                                nav.navigate(Routes.WALLET)
+                            }
+                            QuickTile("Refer & Earn", Icons.Rounded.CardGiftcard, Modifier.weight(1f)) {
+                                nav.navigate(Routes.REFERRAL)
+                            }
+                        }
                     }
                 }
                 if (data.featured.isNotEmpty()) {
@@ -254,7 +268,7 @@ fun HomeScreen(
 
 @Composable
 private fun ProfileHeader(profile: Profile) {
-    GlassSurface(Modifier.fillMaxWidth()) {
+    GlassSurface(Modifier.fillMaxWidth(), refractive = true) {
         Column(Modifier.padding(HmxDimens.cardPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GlassAvatar(profile.avatarUrl, profile.display, 52.dp)
@@ -306,7 +320,7 @@ private fun SetupCard(onClick: () -> Unit) {
                 color = HmxColor.InkSecondary,
             )
             Spacer(Modifier.height(14.dp))
-            GlassButton(
+            HmxGlassButton(
                 text = "Complete setup",
                 onClick = onClick,
                 variant = GlassButtonVariant.Ink,
@@ -323,14 +337,26 @@ private fun QuickTile(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    GlassSurface(modifier = modifier.clickable(role = Role.Button, onClick = onClick)) {
-        Column(
-            Modifier.padding(vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    HmxGlassCard(
+        modifier = modifier,
+        onClick = onClick,
+        contentPadding = 14.dp,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = HmxColor.Ink, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = HmxColor.InkSecondary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = HmxColor.Ink,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = HmxColor.InkTertiary,
+                modifier = Modifier.size(16.dp),
+            )
         }
     }
 }
