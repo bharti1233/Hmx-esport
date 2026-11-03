@@ -66,11 +66,13 @@ import com.hmx.arena.core.model.TournamentRule
 import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.repository.TournamentFilter
+import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.GlassActionRow
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
@@ -257,6 +259,7 @@ data class TournamentDetailUi(
 @HiltViewModel
 class TournamentDetailViewModel @Inject constructor(
     private val repository: TournamentRepository,
+    private val player: PlayerRepository,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(TournamentDetailUi())
     val ui: StateFlow<TournamentDetailUi> = _ui.asStateFlow()
@@ -270,7 +273,7 @@ class TournamentDetailViewModel @Inject constructor(
                 TournamentDetailData(
                     tournament = tournament,
                     rules = runCatching { repository.rules(id) }.getOrDefault(emptyList()),
-                    participants = runCatching { repository.participants(id) }.getOrDefault(emptyList()),
+                    participants = runCatching { player.participants(id) }.getOrDefault(emptyList()),
                     matches = runCatching { repository.tournamentMatches(id) }.getOrDefault(emptyList()),
                     registration = runCatching { repository.registrations() }
                         .getOrDefault(emptyList())

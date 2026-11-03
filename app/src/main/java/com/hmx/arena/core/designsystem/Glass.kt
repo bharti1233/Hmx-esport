@@ -99,7 +99,7 @@ fun GlassSurface(
 }
 
 @Composable
-fun GlassScreenBackground(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun GlassScreenBackground(modifier: Modifier = Modifier, content: @Composable () -> Unit = {}) {
     Canvas(modifier = modifier.fillMaxSize()) {
         drawRect(color = HmxColor.Canvas)
         val w = size.width
@@ -314,9 +314,9 @@ enum class GlassButtonVariant { Primary, Secondary, Ink, Danger }
 fun GlassChip(
     text: String,
     selected: Boolean,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onClick: () -> Unit,
 ) {
     val background = if (selected) HmxColor.Ink else HmxColor.Glass
     val textColor = if (selected) HmxColor.White else HmxColor.InkSecondary

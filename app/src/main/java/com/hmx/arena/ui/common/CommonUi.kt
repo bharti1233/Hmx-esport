@@ -479,8 +479,8 @@ fun EmptyBlock(
 @Composable
 fun TournamentCard(
     tournament: Tournament,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     GlassSurface(
         modifier = modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
@@ -676,7 +676,6 @@ fun android.content.ClipboardManager.copy(text: String) {
     setPrimaryClip(android.content.ClipData.newPlainText("HMX Arena", text))
 }
 
-@Composable
 fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
     clipboard.copy(text)
