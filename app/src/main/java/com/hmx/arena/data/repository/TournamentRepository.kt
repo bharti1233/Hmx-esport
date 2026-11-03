@@ -122,7 +122,7 @@ class TournamentRepository @Inject constructor(
         if (ids.isEmpty()) return emptyList()
         return remote.select(
             "tournaments",
-            mapOf("id" to "in.(${ids.joinToString(",")}")"),
+            mapOf("id" to "in.(${ids.joinToString(",")})"),
             Tournament.serializer(),
         )
     }
