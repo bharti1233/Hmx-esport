@@ -102,8 +102,19 @@ fun GlassSurface(
 }
 
 @Composable
-fun GlassScreenBackground(modifier: Modifier = Modifier, content: @Composable () -> Unit = {}) {
-    HmxLiquidBackdrop(modifier)
+fun GlassScreenBackground(
+    modifier: Modifier = Modifier,
+    force: Boolean = false,
+    content: @Composable () -> Unit = {},
+) {
+    // Under HmxGlassHost the root already paints this exact backdrop, and all
+    // glass surfaces sample that root layer. Painting a second copy would put
+    // the visible background out of sync with what the glass refracts. The
+    // content layer used by GlassScaffold sets force=true because it must be
+    // opaque before it is recorded for the floating bottom bar.
+    if (force || LocalHmxBackdrop.current == null) {
+        HmxLiquidBackdrop(modifier)
+    }
     content()
 }
 
@@ -149,7 +160,7 @@ fun GlassScaffold(
             Box(Modifier.weight(1f)) {
                 if (contentBackdrop != null) {
                     Box(Modifier.fillMaxSize().layerBackdrop(contentBackdrop)) {
-                        GlassScreenBackground()
+                        GlassScreenBackground(force = true)
                         content(PaddingValues(0.dp))
                     }
                 } else {

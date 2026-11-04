@@ -76,50 +76,46 @@ jobs:
             -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
             -no-snapshot -camera-back none -camera-front none
           script: |
-            set -euxo pipefail
+            set -uxo pipefail
             mkdir -p artifacts/screenshots
             adb wait-for-device
             adb shell input keyevent 82 || true
             adb shell wm dismiss-keyguard || true
             adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c || true
 
             capture() {
               state="$1"
               scroll="$2"
               file="$3"
-              adb shell am force-stop com.hmx.arena.debug
+              echo "=== capture $file (state=$state scroll=$scroll) ==="
+              adb shell am force-stop com.hmx.arena.debug || true
               adb shell am start -W \
                 -n com.hmx.arena.debug/com.hmx.arena.ui.visual.VisualTestActivity \
-                --es state "$state" --ei scroll "$scroll"
+                --es state "$state" --ei scroll "$scroll" 2>&1 \
+                | tee "artifacts/am-start-$file.txt"
               sleep 6
+              if ! adb shell pidof com.hmx.arena.debug > /dev/null; then
+                echo "Process died for $file" >&2
+                adb logcat -d > "artifacts/logcat-failure-$file.txt" || true
+                adb shell dumpsys activity top > "artifacts/activity-failure-$file.txt" || true
+                return 1
+              fi
               adb exec-out screencap -p > "artifacts/screenshots/$file"
+              adb shell dumpsys activity top > "artifacts/activity-$file.txt" || true
             }
 
             capture main 0 01-home.png
             capture main 4 02-scrolled.png
             capture sheet 0 03-bottom-sheet.png
             capture dialog 0 04-dialog.png
+            adb logcat -d -t 800 > artifacts/logcat.txt || true
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hmx-liquid-glass-screenshots
-          path: artifacts/screenshots
+          path: artifacts
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Upload emulator logcat
-        if: always()
-        run: |
-          mkdir -p artifacts
-          adb logcat -d > artifacts/logcat.txt || true
-
-      - name: Upload logcat
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hmx-liquid-glass-logcat
-          path: artifacts/logcat.txt
-          if-no-files-found: ignore
-          retention-days: 14

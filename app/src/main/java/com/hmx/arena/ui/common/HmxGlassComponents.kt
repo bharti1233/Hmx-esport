@@ -259,6 +259,7 @@ fun HmxLiquidGlassDialog(
     confirmLabel: String = "Confirm",
     onConfirm: () -> Unit,
     dismissLabel: String? = "Cancel",
+    confirmColor: Color = HmxColor.Ink,
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -305,7 +306,7 @@ fun HmxLiquidGlassDialog(
                         TextButton(onClick = onConfirm) {
                             Text(
                                 confirmLabel,
-                                color = HmxColor.Ink,
+                                color = confirmColor,
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }

@@ -8,10 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,6 +20,7 @@ import com.hmx.arena.ui.auth.AuthFlow
 import com.hmx.arena.ui.auth.RecoveryResetScreen
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.LoadingScreen
+import com.hmx.arena.ui.common.HmxLiquidGlassDialog
 import com.hmx.arena.ui.navigation.MainNavHost
 import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.common.hmxMessage
@@ -119,14 +116,14 @@ fun HmxRoot(
     }
 
     linkError?.let { message ->
-        AlertDialog(
-            onDismissRequest = { linkError = null },
-            containerColor = Color.White,
-            title = { Text("Reset link problem") },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = { linkError = null }) { Text("OK") }
-            },
+        HmxLiquidGlassDialog(
+            visible = true,
+            onDismiss = { linkError = null },
+            title = "Reset link problem",
+            message = message,
+            confirmLabel = "OK",
+            onConfirm = { linkError = null },
+            dismissLabel = null,
         )
     }
 }

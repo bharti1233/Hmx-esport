@@ -398,20 +398,15 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = HmxColor.White,
-        shape = HmxShapes.dialog,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink) },
-        text = { Text(message, style = MaterialTheme.typography.bodyMedium, color = HmxColor.InkSecondary) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(confirmLabel, color = HmxColor.Danger, fontWeight = FontWeight.SemiBold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = HmxColor.InkSecondary) }
-        },
+    HmxLiquidGlassDialog(
+        visible = true,
+        onDismiss = onDismiss,
+        title = title,
+        message = message,
+        confirmLabel = confirmLabel,
+        onConfirm = onConfirm,
+        dismissLabel = "Cancel",
+        confirmColor = HmxColor.Danger,
     )
 }
 

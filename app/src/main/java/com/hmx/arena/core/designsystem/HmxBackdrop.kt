@@ -3,12 +3,6 @@ package com.hmx.arena.core.designsystem
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -101,25 +94,13 @@ fun liquidGlassSupported(context: Context): Boolean {
  */
 @Composable
 fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
-    val animate = LocalHmxGlassEffects.current
-    // Only start the perpetual transition when effects are actually rendered.
-    // On low-RAM/API < 31 devices the backdrop is a single static frame, so the
-    // composable never invalidates and never burns battery redrawing.
-    val motion = if (animate) {
-        val transition = rememberInfiniteTransition(label = "liquidBackdrop")
-        val drift by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 24_000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "backdropDrift",
-        )
-        drift
-    } else {
-        0.5f
-    }
+    // The backdrop is deliberately static. A perpetual transition would keep
+    // an offscreen layer invalidating every frame on every screen, which is
+    // wasteful on the low-RAM targets, and it would put the decorative layer
+    // out of phase with the copy recorded for the bottom bar. A fixed,
+    // high-contrast composition still gives blur and lens real detail to work
+    // with and keeps all glass surfaces sampling the exact same pixels.
+    val motion = 0.5f
 
     Box(modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
