@@ -57,7 +57,6 @@ import com.hmx.arena.core.designsystem.GlassErrorState
 import com.hmx.arena.core.designsystem.GlassIconButton
 import com.hmx.arena.core.designsystem.GlassLoadingIndicator
 import com.hmx.arena.core.designsystem.GlassSurface
-import com.hmx.arena.core.designsystem.GlassTextField
 import com.hmx.arena.core.designsystem.GlassTopBar
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
