@@ -1,0 +1,125 @@
+name: Liquid Glass visual verification
+
+on:
+  push:
+    branches:
+      - "feature/hmx-arena-android-production"
+    paths:
+      - "app/src/main/java/com/hmx/arena/core/designsystem/**"
+      - "app/src/main/java/com/hmx/arena/ui/**"
+      - "app/src/debug/**"
+      - "app/build.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/android-visual.yml"
+  pull_request:
+    paths:
+      - "app/src/main/java/com/hmx/arena/core/designsystem/**"
+      - "app/src/main/java/com/hmx/arena/ui/**"
+      - "app/src/debug/**"
+      - ".github/workflows/android-visual.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    name: Build debug APK and capture emulator screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK packages
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Capture Liquid Glass screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -no-snapshot -camera-back none -camera-front none
+          script: |
+            set -euxo pipefail
+            mkdir -p artifacts/screenshots
+            adb wait-for-device
+            adb shell input keyevent 82 || true
+            adb shell wm dismiss-keyguard || true
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+
+            capture() {
+              state="$1"
+              scroll="$2"
+              file="$3"
+              adb shell am force-stop com.hmx.arena.debug
+              adb shell am start -W \
+                -n com.hmx.arena.debug/com.hmx.arena.ui.visual.VisualTestActivity \
+                --es state "$state" --ei scroll "$scroll"
+              sleep 6
+              adb exec-out screencap -p > "artifacts/screenshots/$file"
+            }
+
+            capture main 0 01-home.png
+            capture main 4 02-scrolled.png
+            capture sheet 0 03-bottom-sheet.png
+            capture dialog 0 04-dialog.png
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmx-liquid-glass-screenshots
+          path: artifacts/screenshots
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload emulator logcat
+        if: always()
+        run: |
+          mkdir -p artifacts
+          adb logcat -d > artifacts/logcat.txt || true
+
+      - name: Upload logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmx-liquid-glass-logcat
+          path: artifacts/logcat.txt
+          if-no-files-found: ignore
+          retention-days: 14

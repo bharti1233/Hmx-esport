@@ -167,7 +167,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
     ) {
         LazyColumn(
             Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 26.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 124.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

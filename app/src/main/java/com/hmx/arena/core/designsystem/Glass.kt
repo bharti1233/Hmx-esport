@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -63,6 +64,8 @@ import androidx.compose.ui.draw.scale
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 /**
  * A frosted translucent surface.
@@ -83,88 +86,24 @@ fun GlassSurface(
     elevation: Dp = HmxElevation.card,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refractive: Boolean = false,
+    level: HmxGlassLevel = HmxGlassLevel.Card,
     content: @Composable () -> Unit,
 ) {
-    val backdrop = LocalHmxBackdrop.current
-    val useBackdrop = refractive &&
-        backdrop != null &&
-        LocalHmxGlassEffects.current &&
-        fill.alpha > 0.02f
-
-    val base = modifier
-        .shadow(
-            elevation = elevation,
-            shape = shape,
-            ambientColor = HmxColor.Shadow,
-            spotColor = HmxColor.Shadow,
-            clip = false,
-        )
-        .clip(shape)
-
-    if (useBackdrop) {
-        Box(
-            modifier = base
-                .drawBackdrop(
-                    backdrop = backdrop!!,
-                    shape = { shape },
-                    effects = {
-                        blur(radius = 18.dp.toPx())
-                        lens(
-                            refractionHeight = 14.dp.toPx(),
-                            refractionAmount = 9.dp.toPx(),
-                            depthEffect = true,
-                        )
-                    },
-                    onDrawSurface = {
-                        drawRect(fill.copy(alpha = minOf(fill.alpha, 0.62f)))
-                    },
-                )
-                .border(HmxDimens.hairline, borderColor, shape)
-                .padding(contentPadding),
-        ) {
-            content()
-        }
-    } else {
-        Box(
-            modifier = base
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = fill.alpha), fill),
-                    ),
-                )
-                .border(HmxDimens.hairline, borderColor, shape)
-                .padding(contentPadding),
-        ) {
-            content()
-        }
-    }
+    val glassLevel = if (refractive) HmxGlassLevel.Chrome else level
+    HmxLiquidGlassSurface(
+        modifier = modifier,
+        shape = shape,
+        level = glassLevel,
+        fill = fill,
+        elevation = elevation,
+        contentPadding = contentPadding,
+        content = content,
+    )
 }
 
 @Composable
 fun GlassScreenBackground(modifier: Modifier = Modifier, content: @Composable () -> Unit = {}) {
-    Canvas(modifier = modifier.fillMaxSize()) {
-        drawRect(color = HmxColor.Canvas)
-        val w = size.width
-        val h = size.height
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFFFFFFF), Color(0x00FFFFFF)),
-                center = Offset(w * 0.82f, h * 0.04f),
-                radius = w * 0.75f,
-            ),
-            radius = w * 0.75f,
-            center = Offset(w * 0.82f, h * 0.04f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFF0F0F4), Color(0x00F0F0F4)),
-                center = Offset(w * 0.06f, h * 0.72f),
-                radius = w * 0.9f,
-            ),
-            radius = w * 0.9f,
-            center = Offset(w * 0.06f, h * 0.72f),
-        )
-    }
+    HmxLiquidBackdrop(modifier)
     content()
 }
 
@@ -176,27 +115,62 @@ fun GlassScaffold(
     floatingActionButton: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val effectsEnabled = LocalHmxGlassEffects.current
+    val rootBackdrop = LocalHmxBackdrop.current
+
+    // The content layer is recorded separately from the chrome. That lets the
+    // floating bottom bar refract the actual list scrolling underneath it,
+    // while the bar itself stays outside the layer (no feedback loop).
+    val contentBackdrop = if (effectsEnabled) {
+        rememberLayerBackdrop {
+            drawRect(HmxColor.Canvas)
+            drawContent()
+        }
+    } else {
+        null
+    }
+
     Box(modifier.fillMaxSize()) {
-        GlassScreenBackground()
+        // HmxGlassHost already paints this background. Only paint a local copy
+        // when GlassScaffold is used without the host (e.g. previews), so a
+        // normal screen never renders the decorative backdrop twice.
+        if (rootBackdrop == null) {
+            GlassScreenBackground()
+        }
         Column(Modifier.fillMaxSize()) {
             if (topBar != null) {
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = HmxDimens.screenPadding),
+                        .padding(horizontal = HmxDimens.screenPadding, vertical = HmxDimens.xs),
                 ) { topBar() }
             }
             Box(Modifier.weight(1f)) {
-                content(PaddingValues(top = 0.dp))
-            }
-            if (bottomBar != null) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = HmxDimens.md, vertical = HmxDimens.xs),
-                ) { bottomBar() }
+                if (contentBackdrop != null) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(contentBackdrop)) {
+                        GlassScreenBackground()
+                        content(PaddingValues(0.dp))
+                    }
+                } else {
+                    content(PaddingValues(0.dp))
+                }
+
+                if (bottomBar != null) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = HmxDimens.md, vertical = HmxDimens.xs),
+                    ) {
+                        CompositionLocalProvider(
+                            LocalHmxBackdrop provides (contentBackdrop ?: rootBackdrop),
+                        ) {
+                            bottomBar()
+                        }
+                    }
+                }
             }
         }
         if (floatingActionButton != null) {
@@ -217,14 +191,13 @@ fun GlassTopBar(
     modifier: Modifier = Modifier,
     actions: @Composable () -> Unit = {},
 ) {
-    GlassSurface(
+    HmxLiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
         shape = HmxShapes.pill,
-        fill = Color.White.copy(alpha = 0.46f),
-        borderColor = HmxColor.Hairline,
-        elevation = 0.dp,
+        level = HmxGlassLevel.Chrome,
+        fill = HmxColor.GlassChrome,
+        elevation = 8.dp,
         contentPadding = PaddingValues(horizontal = 8.dp),
-        refractive = true,
     ) {
         Row(
             Modifier
@@ -263,26 +236,28 @@ fun GlassIconButton(
     enabled: Boolean = true,
     tint: Color = HmxColor.Ink,
 ) {
-    Box(
+    HmxLiquidGlassSurface(
         modifier = modifier
             .size(HmxDimens.iconButton)
-            .clip(CircleShape)
-            .background(HmxColor.Glass)
-            .border(HmxDimens.hairline, HmxColor.Hairline, CircleShape)
             .clickable(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = onClick,
             )
             .semantics { this.contentDescription = contentDescription },
-        contentAlignment = Alignment.Center,
+        shape = CircleShape,
+        level = HmxGlassLevel.Control,
+        fill = HmxColor.GlassControl,
+        elevation = 6.dp,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (enabled) tint else HmxColor.Disabled,
-            modifier = Modifier.size(20.dp),
-        )
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (enabled) tint else HmxColor.Disabled,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
@@ -300,10 +275,10 @@ fun GlassButton(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed && enabled) 0.98f else 1f)
     val fill = when (variant) {
-        GlassButtonVariant.Primary -> HmxColor.GlassStrong
-        GlassButtonVariant.Secondary -> Color.Transparent
+        GlassButtonVariant.Primary -> HmxColor.GlassControl
+        GlassButtonVariant.Secondary -> Color.White.copy(alpha = 0.16f)
         GlassButtonVariant.Ink -> if (enabled) HmxColor.Ink else HmxColor.Disabled
-        GlassButtonVariant.Danger -> Color.Transparent
+        GlassButtonVariant.Danger -> Color.White.copy(alpha = 0.18f)
     }
     val contentColor = when (variant) {
         GlassButtonVariant.Primary -> HmxColor.Ink
@@ -311,7 +286,7 @@ fun GlassButton(
         GlassButtonVariant.Ink -> HmxColor.White
         GlassButtonVariant.Danger -> HmxColor.Danger
     }
-    GlassSurface(
+    HmxLiquidGlassSurface(
         modifier = modifier
             .fillMaxWidth()
             .height(HmxDimens.buttonHeight)
@@ -324,13 +299,9 @@ fun GlassButton(
                 onClick = onClick,
             ),
         shape = HmxShapes.pill,
-        fill = if (fill == Color.Transparent) Color.Transparent else fill,
-        borderColor = when (variant) {
-            GlassButtonVariant.Secondary, GlassButtonVariant.Danger -> HmxColor.HairlineStrong
-            GlassButtonVariant.Ink -> Color.Transparent
-            else -> HmxColor.Hairline
-        },
-        elevation = if (variant == GlassButtonVariant.Ink) 4.dp else HmxElevation.card,
+        level = if (variant == GlassButtonVariant.Ink) HmxGlassLevel.Card else HmxGlassLevel.Control,
+        fill = fill,
+        elevation = if (variant == GlassButtonVariant.Ink) 8.dp else HmxElevation.card,
     ) {
         Row(
             Modifier.fillMaxSize(),
@@ -373,23 +344,24 @@ fun GlassChip(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) HmxColor.Ink else HmxColor.Glass
     val textColor = if (selected) HmxColor.White else HmxColor.InkSecondary
-    Box(
+    HmxLiquidGlassSurface(
         modifier = modifier
             .height(38.dp)
-            .clip(HmxShapes.pill)
-            .background(background)
-            .border(HmxDimens.hairline, if (selected) Color.Transparent else HmxColor.Hairline, HmxShapes.pill)
-            .clickable(enabled = enabled, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
+            .clickable(enabled = enabled, role = Role.Tab, onClick = onClick),
+        shape = HmxShapes.pill,
+        level = if (selected) HmxGlassLevel.Card else HmxGlassLevel.Control,
+        fill = if (selected) HmxColor.Ink else HmxColor.GlassControl,
+        elevation = 6.dp,
+        contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (enabled) textColor else HmxColor.Disabled,
-        )
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (enabled) textColor else HmxColor.Disabled,
+            )
+        }
     }
 }
 

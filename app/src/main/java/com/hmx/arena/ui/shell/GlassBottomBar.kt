@@ -1,17 +1,25 @@
 package com.hmx.arena.ui.shell
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Home
@@ -22,19 +30,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.hmx.arena.core.designsystem.GlassSurface
 import com.hmx.arena.core.designsystem.HmxColor
-import com.hmx.arena.core.designsystem.HmxDimens
+import com.hmx.arena.core.designsystem.HmxGlassLevel
+import com.hmx.arena.core.designsystem.HmxLiquidGlassSurface
 import com.hmx.arena.core.designsystem.HmxShapes
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
@@ -47,56 +55,91 @@ private val tabs = listOf(
     TabItem("profile", "Profile", Icons.Rounded.Person),
 )
 
+/**
+ * The reference component: a floating, fully refractive glass capsule.
+ *
+ * It is placed outside the screen's recorded content layer by `GlassScaffold`,
+ * so the blur and lens sample the actual scrolling list behind it. The moving
+ * black capsule is the only opaque element; there is no white plate underneath.
+ */
 @Composable
-fun GlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) {
-    GlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+fun HmxLiquidGlassBottomBar(
+    selectedRoute: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }.coerceAtLeast(0)
+
+    HmxLiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
         shape = HmxShapes.pill,
-        fill = HmxColor.White.copy(alpha = 0.58f),
-        elevation = 18.dp,
-        refractive = true,
+        level = HmxGlassLevel.Chrome,
+        fill = HmxColor.GlassChrome,
+        elevation = 20.dp,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                .height(58.dp),
         ) {
-            tabs.forEach { tab ->
-                val selected = selectedRoute == tab.route
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(HmxShapes.pill)
-                        .semantics {
-                            this.selected = selected
-                            contentDescription = tab.label
-                        }
-                        .clickable(role = Role.Tab) { onSelect(tab.route) }
-                        .padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
-                        Modifier
-                            .size(width = 42.dp, height = 28.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) HmxColor.Ink else Color.Transparent),
-                        contentAlignment = Alignment.Center,
+            val tabWidth = maxWidth / tabs.size
+            val animatedIndex by animateFloatAsState(
+                targetValue = selectedIndex.toFloat(),
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+                label = "bottomBarSelection",
+            )
+
+            Box(
+                Modifier
+                    .offset(x = tabWidth * animatedIndex)
+                    .width(tabWidth)
+                    .fillMaxHeight()
+                    .padding(horizontal = 3.dp, vertical = 2.dp)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(HmxColor.Ink),
+            )
+
+            Row(Modifier.fillMaxSize()) {
+                tabs.forEachIndexed { index, tab ->
+                    val selected = index == selectedIndex
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .semantics {
+                                this.selected = selected
+                                contentDescription = tab.label
+                            }
+                            .clickable(role = Role.Tab) { onSelect(tab.route) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        Spacer(Modifier.weight(1f))
                         Icon(
                             tab.icon,
                             contentDescription = null,
-                            tint = if (selected) HmxColor.White else HmxColor.InkTertiary,
-                            modifier = Modifier.size(18.dp),
+                            tint = if (selected) HmxColor.White else HmxColor.InkSecondary,
+                            modifier = Modifier.size(20.dp),
                         )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) HmxColor.White else HmxColor.InkSecondary,
+                        )
+                        Spacer(Modifier.weight(1f))
                     }
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) HmxColor.Ink else HmxColor.InkTertiary,
-                    )
                 }
             }
         }
     }
+}
+
+/** Compatibility entry point used by older screens. */
+@Composable
+fun GlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) {
+    HmxLiquidGlassBottomBar(selectedRoute = selectedRoute, onSelect = onSelect)
 }

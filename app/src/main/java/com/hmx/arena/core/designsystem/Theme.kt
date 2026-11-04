@@ -27,12 +27,20 @@ object HmxColor {
     val InkTertiary = Color(0xFF9B9BA2)
     val Hairline = Color(0x1A0B0B0C)
     val HairlineStrong = Color(0x330B0B0C)
-    val Glass = Color(0xCCFFFFFF)
-    val GlassStrong = Color(0xF2FFFFFF)
-    val GlassMuted = Color(0x99FFFFFF)
-    val Shadow = Color(0x14000000)
-    val ShadowSoft = Color(0x0A000000)
-    val Scrim = Color(0x33000000)
+
+    // Liquid Glass surfaces are deliberately much more transparent than a
+    // Material card. The visible backdrop, not a grey border, supplies depth.
+    val Glass = Color(0x52FFFFFF)
+    val GlassStrong = Color(0x8AFFFFFF)
+    val GlassMuted = Color(0x24FFFFFF)
+    val GlassChrome = Color(0x3DFFFFFF)
+    val GlassControl = Color(0x66FFFFFF)
+    val GlassEdge = Color(0x99FFFFFF)
+    val GlassInk = Color(0xD90B0B0C)
+
+    val Shadow = Color(0x1F000000)
+    val ShadowSoft = Color(0x0F000000)
+    val Scrim = Color(0x3D000000)
     val Danger = Color(0xFF8C2F2F)
     val Disabled = Color(0xFFBFBFC6)
 }

@@ -162,7 +162,7 @@ fun LeaderboardList(
 ) {
     LazyColumn(
         modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 124.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(rows, key = { it.entityId + it.rankNo }) { row ->

@@ -163,7 +163,7 @@ fun HomeScreen(
             state.error != null && data == null -> InlineError(state.error!!, onRetry = viewModel::load)
             data != null -> LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 124.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 item { ProfileHeader(data.profile) }

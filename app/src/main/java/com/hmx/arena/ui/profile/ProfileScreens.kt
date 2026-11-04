@@ -181,7 +181,7 @@ fun ProfileScreen(nav: NavHostController, viewModel: ProfileViewModel = hiltView
                 val profile = ui.profile!!
                 LazyColumn(
                     Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 124.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     if (ui.message != null) item { InlineSuccess(ui.message!!) }

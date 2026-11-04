@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Debug-only harness used by the GitHub Actions emulator workflow to
+             capture the Liquid Glass surfaces on a real Android runtime. -->
+        <activity
+            android:name=".ui.visual.VisualTestActivity"
+            android:exported="true"
+            android:theme="@style/Theme.HMXArena" />
+    </application>
+
+</manifest>

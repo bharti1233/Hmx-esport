@@ -1,8 +1,13 @@
 package com.hmx.arena.ui.common
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,19 +31,12 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassChip
@@ -56,10 +56,11 @@ import com.hmx.arena.core.designsystem.GlassEmptyState
 import com.hmx.arena.core.designsystem.GlassErrorState
 import com.hmx.arena.core.designsystem.GlassIconButton
 import com.hmx.arena.core.designsystem.GlassLoadingIndicator
-import com.hmx.arena.core.designsystem.GlassSurface
 import com.hmx.arena.core.designsystem.GlassTopBar
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
+import com.hmx.arena.core.designsystem.HmxGlassLevel
+import com.hmx.arena.core.designsystem.HmxLiquidGlassSurface
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.model.LeaderboardRow
 import com.hmx.arena.core.model.Match
@@ -68,26 +69,26 @@ import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.model.Team
 import com.hmx.arena.core.model.Tournament
 import com.hmx.arena.core.util.Format
-import com.hmx.arena.ui.shell.GlassBottomBar
 
 /**
- * HMX Arena component library.
+ * HMX Liquid Glass component library.
  *
- * Every component is monochrome by construction: pure white / translucent white
- * fills, ink text, neutral hairlines. Only chrome opts into Backdrop
- * refraction; cards and list rows stay on the cheap fill so long lists remain
- * smooth on low-RAM hardware.
+ * Every component below delegates to `Modifier.hmxLiquidGlass`, so the surface
+ * is a real recorded backdrop with optional blur, lens, highlight, outer and
+ * inner shadow. List rows use the zero-blur Card level; chrome (bars, sheets,
+ * dialogs, hero cards) uses the Chrome level. Low-RAM and API < 31 devices take
+ * the identical-layout translucent fallback.
  */
 
 @Composable
-fun HmxGlassCard(
+fun HmxLiquidGlassCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     refractive: Boolean = false,
     contentPadding: Dp = HmxDimens.cardPadding,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    GlassSurface(
+    HmxLiquidGlassSurface(
         modifier = modifier
             .fillMaxWidth()
             .then(
@@ -97,14 +98,18 @@ fun HmxGlassCard(
                     Modifier
                 },
             ),
-        refractive = refractive,
+        shape = HmxShapes.card,
+        level = if (refractive) HmxGlassLevel.Chrome else HmxGlassLevel.Card,
+        fill = HmxColor.Glass,
+        elevation = if (refractive) 16.dp else 10.dp,
+        contentPadding = PaddingValues(contentPadding),
     ) {
-        Column(Modifier.padding(contentPadding), content = content)
+        Column(Modifier.fillMaxWidth(), content = content)
     }
 }
 
 @Composable
-fun HmxGlassButton(
+fun HmxLiquidGlassButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -125,7 +130,7 @@ fun HmxGlassButton(
 }
 
 @Composable
-fun HmxGlassOutlinedButton(
+fun HmxLiquidGlassOutlinedButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -145,7 +150,7 @@ fun HmxGlassOutlinedButton(
 }
 
 @Composable
-fun HmxGlassIconButton(
+fun HmxLiquidGlassIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
@@ -162,12 +167,12 @@ fun HmxGlassIconButton(
 }
 
 @Composable
-fun HmxGlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) {
-    GlassBottomBar(selectedRoute = selectedRoute, onSelect = onSelect)
+fun HmxLiquidGlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) {
+    com.hmx.arena.ui.shell.HmxLiquidGlassBottomBar(selectedRoute = selectedRoute, onSelect = onSelect)
 }
 
 @Composable
-fun HmxGlassTopBar(
+fun HmxLiquidGlassTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -176,56 +181,77 @@ fun HmxGlassTopBar(
     GlassTopBar(title = title, onBack = onBack, modifier = modifier, actions = actions)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * In-window bottom sheet. Rendering inside the same composition (instead of a
+ * separate Dialog window) keeps the recorded backdrop coordinates valid, so
+ * the sheet really refracts the page underneath it.
+ */
 @Composable
-fun HmxGlassBottomSheet(
+fun HmxLiquidGlassBottomSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (!visible) return
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = Color.Transparent,
-        scrimColor = HmxColor.Scrim,
-        dragHandle = null,
-        tonalElevation = 0.dp,
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
     ) {
-        GlassSurface(
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            fill = Color.White.copy(alpha = 0.72f),
-            elevation = 0.dp,
-            refractive = true,
-        ) {
-            Column(
+        Box(Modifier.fillMaxSize().zIndex(40f)) {
+            Box(
                 Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 22.dp, vertical = 18.dp),
+                    .fillMaxSize()
+                    .background(HmxColor.Scrim)
+                    .clickable(onClick = onDismiss),
+            )
+            AnimatedVisibility(
+                visible = visible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                Box(
-                    Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(width = 42.dp, height = 4.dp)
-                        .clip(HmxShapes.pill)
-                        .background(HmxColor.HairlineStrong),
-                )
-                if (title != null) {
-                    Spacer(Modifier.height(18.dp))
-                    Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink)
+                HmxLiquidGlassSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                        ),
+                    shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
+                    level = HmxGlassLevel.Chrome,
+                    fill = HmxColor.GlassChrome,
+                    elevation = 24.dp,
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 22.dp, vertical = 18.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .size(width = 42.dp, height = 4.dp)
+                                .clip(HmxShapes.pill)
+                                .background(HmxColor.HairlineStrong),
+                        )
+                        if (title != null) {
+                            Spacer(Modifier.height(18.dp))
+                            Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        content()
+                    }
                 }
-                Spacer(Modifier.height(16.dp))
-                content()
             }
         }
     }
 }
 
 @Composable
-fun HmxGlassDialog(
+fun HmxLiquidGlassDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
     title: String,
@@ -234,33 +260,64 @@ fun HmxGlassDialog(
     onConfirm: () -> Unit,
     dismissLabel: String? = "Cancel",
 ) {
-    if (!visible) return
-    val dismissButton: (@Composable () -> Unit)? = if (dismissLabel != null) {
-        {
-            TextButton(onClick = onDismiss) {
-                Text(dismissLabel, color = HmxColor.InkSecondary, style = MaterialTheme.typography.labelMedium)
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Box(Modifier.fillMaxSize().zIndex(50f), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(HmxColor.Scrim)
+                    .clickable(onClick = onDismiss),
+            )
+            HmxLiquidGlassSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    ),
+                shape = HmxShapes.dialog,
+                level = HmxGlassLevel.Chrome,
+                fill = HmxColor.GlassChrome,
+                elevation = 28.dp,
+                contentPadding = PaddingValues(24.dp),
+            ) {
+                Column {
+                    Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink)
+                    Spacer(Modifier.height(10.dp))
+                    Text(message, style = MaterialTheme.typography.bodyMedium, color = HmxColor.InkSecondary)
+                    Spacer(Modifier.height(18.dp))
+                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                        if (dismissLabel != null) {
+                            TextButton(onClick = onDismiss) {
+                                Text(
+                                    dismissLabel,
+                                    color = HmxColor.InkSecondary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        TextButton(onClick = onConfirm) {
+                            Text(
+                                confirmLabel,
+                                color = HmxColor.Ink,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
             }
         }
-    } else {
-        null
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White.copy(alpha = 0.94f),
-        shape = HmxShapes.dialog,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink) },
-        text = { Text(message, style = MaterialTheme.typography.bodyMedium, color = HmxColor.InkSecondary) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(confirmLabel, color = HmxColor.Ink, style = MaterialTheme.typography.labelLarge)
-            }
-        },
-        dismissButton = dismissButton,
-    )
 }
 
 @Composable
-fun HmxGlassTextField(
+fun HmxLiquidGlassTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -291,7 +348,7 @@ fun HmxGlassTextField(
 }
 
 @Composable
-fun HmxGlassSearchField(
+fun HmxLiquidGlassSearchBar(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -325,7 +382,7 @@ fun HmxGlassSearchField(
 }
 
 @Composable
-fun HmxGlassChip(
+fun HmxLiquidGlassChip(
     text: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
@@ -336,7 +393,7 @@ fun HmxGlassChip(
 }
 
 @Composable
-fun HmxGlassTournamentCard(
+fun HmxLiquidGlassTournamentCard(
     tournament: Tournament,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -345,13 +402,23 @@ fun HmxGlassTournamentCard(
 }
 
 @Composable
-fun HmxGlassTeamCard(
+fun HmxLiquidGlassMatchCard(
+    match: Match,
+    tournamentTitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    MatchCard(match = match, tournamentTitle = tournamentTitle, onClick = onClick, modifier = modifier)
+}
+
+@Composable
+fun HmxLiquidGlassTeamCard(
     team: Team,
     modifier: Modifier = Modifier,
     memberCount: Int? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    HmxGlassCard(modifier = modifier, onClick = onClick) {
+    HmxLiquidGlassCard(modifier = modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
@@ -398,13 +465,13 @@ fun HmxGlassTeamCard(
 }
 
 @Composable
-fun HmxGlassPlayerCard(
+fun HmxLiquidGlassPlayerCard(
     profile: Profile,
     modifier: Modifier = Modifier,
     trailing: String? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    HmxGlassCard(modifier = modifier, onClick = onClick) {
+    HmxLiquidGlassCard(modifier = modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             GlassAvatar(profile.avatarUrl, profile.display, 46.dp)
             Spacer(Modifier.width(13.dp))
@@ -432,14 +499,14 @@ fun HmxGlassPlayerCard(
 }
 
 @Composable
-fun HmxGlassLeaderboardItem(
+fun HmxLiquidGlassLeaderboardItem(
     row: LeaderboardRow,
     modifier: Modifier = Modifier,
     clickable: Boolean = true,
     onClick: (() -> Unit)? = null,
 ) {
     val isTop = row.rankNo <= 3
-    HmxGlassCard(
+    HmxLiquidGlassCard(
         modifier = modifier,
         onClick = if (clickable) onClick else null,
         contentPadding = 14.dp,
@@ -449,7 +516,7 @@ fun HmxGlassLeaderboardItem(
                 Modifier
                     .size(30.dp)
                     .clip(CircleShape)
-                    .background(if (isTop) HmxColor.Ink else HmxColor.CanvasTint),
+                    .background(if (isTop) HmxColor.Ink else HmxColor.GlassControl),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -484,31 +551,21 @@ fun HmxGlassLeaderboardItem(
 }
 
 @Composable
-fun HmxGlassMatchCard(
-    match: Match,
-    tournamentTitle: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    MatchCard(match = match, tournamentTitle = tournamentTitle, onClick = onClick, modifier = modifier)
-}
-
-@Composable
-fun HmxGlassStatCard(
+fun HmxLiquidGlassStatCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     caption: String? = null,
     icon: ImageVector? = null,
 ) {
-    HmxGlassCard(modifier = modifier, contentPadding = 16.dp) {
+    HmxLiquidGlassCard(modifier = modifier, contentPadding = 16.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
                 Box(
                     Modifier
                         .size(38.dp)
                         .clip(HmxShapes.small)
-                        .background(HmxColor.CanvasTint),
+                        .background(HmxColor.GlassControl),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(icon, contentDescription = null, tint = HmxColor.Ink, modifier = Modifier.size(19.dp))
@@ -528,18 +585,18 @@ fun HmxGlassStatCard(
 }
 
 @Composable
-fun HmxGlassNotificationCard(
+fun HmxLiquidGlassNotificationCard(
     item: NotificationItem,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    HmxGlassCard(modifier = modifier, onClick = onClick) {
+    HmxLiquidGlassCard(modifier = modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.Top) {
             Box(
                 Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(if (item.unread) HmxColor.Ink else HmxColor.CanvasTint),
+                    .background(if (item.unread) HmxColor.Ink else HmxColor.GlassControl),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -583,12 +640,12 @@ fun HmxGlassNotificationCard(
 }
 
 @Composable
-fun HmxGlassLoading(label: String = "Loading", modifier: Modifier = Modifier) {
+fun HmxLiquidGlassLoading(label: String = "Loading", modifier: Modifier = Modifier) {
     GlassLoadingIndicator(modifier = modifier, label = label)
 }
 
 @Composable
-fun HmxGlassEmptyState(
+fun HmxLiquidGlassEmptyState(
     title: String,
     message: String,
     modifier: Modifier = Modifier,
@@ -607,10 +664,195 @@ fun HmxGlassEmptyState(
 }
 
 @Composable
-fun HmxGlassErrorState(
+fun HmxLiquidGlassErrorState(
     message: String,
     modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
 ) {
     GlassErrorState(message = message, modifier = modifier, onRetry = onRetry)
 }
+
+// ---------------------------------------------------------------------------
+// Compatibility aliases. Existing screens can migrate incrementally; these
+// call the same real-glass implementation, never a colour-only imitation.
+// ---------------------------------------------------------------------------
+
+@Composable
+fun HmxGlassCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    refractive: Boolean = false,
+    contentPadding: Dp = HmxDimens.cardPadding,
+    content: @Composable ColumnScope.() -> Unit,
+) = HmxLiquidGlassCard(modifier, onClick, refractive, contentPadding, content)
+
+@Composable
+fun HmxGlassButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    variant: GlassButtonVariant = GlassButtonVariant.Ink,
+    leadingIcon: ImageVector? = null,
+) = HmxLiquidGlassButton(text, onClick, modifier, enabled, loading, variant, leadingIcon)
+
+@Composable
+fun HmxGlassOutlinedButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    leadingIcon: ImageVector? = null,
+) = HmxLiquidGlassOutlinedButton(text, onClick, modifier, enabled, loading, leadingIcon)
+
+@Composable
+fun HmxGlassIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) = HmxLiquidGlassIconButton(icon, contentDescription, onClick, modifier, enabled)
+
+@Composable
+fun HmxGlassBottomBar(selectedRoute: String, onSelect: (String) -> Unit) =
+    HmxLiquidGlassBottomBar(selectedRoute, onSelect)
+
+@Composable
+fun HmxGlassTopBar(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {},
+) = HmxLiquidGlassTopBar(title, onBack, modifier, actions)
+
+@Composable
+fun HmxGlassBottomSheet(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    title: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) = HmxLiquidGlassBottomSheet(visible, onDismiss, title, content)
+
+@Composable
+fun HmxGlassDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    title: String,
+    message: String,
+    confirmLabel: String = "Confirm",
+    onConfirm: () -> Unit,
+    dismissLabel: String? = "Cancel",
+) = HmxLiquidGlassDialog(visible, onDismiss, title, message, confirmLabel, onConfirm, dismissLabel)
+
+@Composable
+fun HmxGlassTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Next,
+    enabled: Boolean = true,
+    error: String? = null,
+    maxLines: Int = 1,
+    leadingIcon: ImageVector? = null,
+    onImeAction: (() -> Unit)? = null,
+) = HmxLiquidGlassTextField(
+    value, onValueChange, label, modifier, placeholder, keyboardType, imeAction,
+    enabled, error, maxLines, leadingIcon, onImeAction,
+)
+
+@Composable
+fun HmxGlassSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Search players",
+    onSearch: (() -> Unit)? = null,
+) = HmxLiquidGlassSearchBar(value, onValueChange, modifier, placeholder, onSearch)
+
+@Composable
+fun HmxGlassChip(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) = HmxLiquidGlassChip(text, selected, modifier, enabled, onClick)
+
+@Composable
+fun HmxGlassTournamentCard(tournament: Tournament, onClick: () -> Unit, modifier: Modifier = Modifier) =
+    HmxLiquidGlassTournamentCard(tournament, onClick, modifier)
+
+@Composable
+fun HmxGlassTeamCard(
+    team: Team,
+    modifier: Modifier = Modifier,
+    memberCount: Int? = null,
+    onClick: (() -> Unit)? = null,
+) = HmxLiquidGlassTeamCard(team, modifier, memberCount, onClick)
+
+@Composable
+fun HmxGlassPlayerCard(
+    profile: Profile,
+    modifier: Modifier = Modifier,
+    trailing: String? = null,
+    onClick: (() -> Unit)? = null,
+) = HmxLiquidGlassPlayerCard(profile, modifier, trailing, onClick)
+
+@Composable
+fun HmxGlassLeaderboardItem(
+    row: LeaderboardRow,
+    modifier: Modifier = Modifier,
+    clickable: Boolean = true,
+    onClick: (() -> Unit)? = null,
+) = HmxLiquidGlassLeaderboardItem(row, modifier, clickable, onClick)
+
+@Composable
+fun HmxGlassMatchCard(
+    match: Match,
+    tournamentTitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) = HmxLiquidGlassMatchCard(match, tournamentTitle, onClick, modifier)
+
+@Composable
+fun HmxGlassStatCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    caption: String? = null,
+    icon: ImageVector? = null,
+) = HmxLiquidGlassStatCard(label, value, modifier, caption, icon)
+
+@Composable
+fun HmxGlassNotificationCard(
+    item: NotificationItem,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) = HmxLiquidGlassNotificationCard(item, modifier, onClick)
+
+@Composable
+fun HmxGlassLoading(label: String = "Loading", modifier: Modifier = Modifier) =
+    HmxLiquidGlassLoading(label, modifier)
+
+@Composable
+fun HmxGlassEmptyState(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Rounded.EmojiEvents,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) = HmxLiquidGlassEmptyState(title, message, modifier, icon, actionLabel, onAction)
+
+@Composable
+fun HmxGlassErrorState(
+    message: String,
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null,
+) = HmxLiquidGlassErrorState(message, modifier, onRetry)
