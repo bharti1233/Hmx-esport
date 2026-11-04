@@ -227,7 +227,9 @@ reference onboarding journey. They are documented in detail in
   `.github/workflows/android-ci.yml`, which runs `testDebugUnitTest`,
   `lintDebug` and `assembleDebug`, then uploads the debug APK.
 - The dependency bump (Kotlin 2.2.21 / KSP 2.2.21-2.0.5 / Compose BOM
-  2025.10.01 / Backdrop 1.0.0) must pass CI before merge.
+  2025.10.01 / Backdrop 1.0.0) passed CI on commit `2710baa`:
+  `testDebugUnitTest`, `lintDebug` and `assembleDebug` all green, with the
+  debug APK uploaded as the `hmx-arena-debug-apk` artifact.
 - Unit coverage added: `SupabaseErrorTest` verifies the onboarding error
   mapping and PostgREST error parsing.
 - Database verification was executed against the live project in rolled-back

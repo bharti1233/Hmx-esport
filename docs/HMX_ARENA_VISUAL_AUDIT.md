@@ -214,7 +214,13 @@ Live verification:
 | `return=minimal` profile write | Passed (HTTP 204) |
 | Anonymous catalogue reads | Passed (HTTP 200) |
 | `public_profiles` authenticated + anonymous | Passed (HTTP 200) |
-| Unit tests for error mapping | Added |
-| Kotlin/Compose compile | Pending GitHub Actions |
-| Lint | Pending GitHub Actions |
+| Unit tests for error mapping | Passed |
+| Kotlin/Compose compile | Passed (CI run [41838272110](https://github.com/bharti1233/Hmx-esport/actions/runs/41838272110), `2710baa`) |
+| Lint | Passed (same CI run) |
+| Debug APK | Built and uploaded, artifact `hmx-arena-debug-apk` (21,155,582 bytes) |
 | Device screenshot diff | Pending physical device |
+
+The CI worktree builds with Kotlin `2.2.21`, Compose BOM `2025.10.01`, and
+Backdrop `1.0.0`. One compile fix was needed after the first push
+(`GlassTextField` lives in `ui.common`, not `core.designsystem`); the follow-up
+commit `2710baa` is green across unit tests, lint, and `assembleDebug`.
