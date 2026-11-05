@@ -1,6 +1,8 @@
 package com.hmx.arena.ui.common
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -10,32 +12,42 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SettingsBrightness
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +55,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +78,8 @@ import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxGlassLevel
 import com.hmx.arena.core.designsystem.HmxLiquidGlassSurface
 import com.hmx.arena.core.designsystem.HmxShapes
+import com.hmx.arena.core.designsystem.HmxThemeMode
+import com.hmx.arena.core.designsystem.hmxColorScheme
 import com.hmx.arena.core.model.LeaderboardRow
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.NotificationItem
@@ -431,7 +449,7 @@ fun HmxLiquidGlassTeamCard(
                 Text(
                     team.tag.take(2).uppercase(),
                     style = MaterialTheme.typography.labelLarge,
-                    color = HmxColor.White,
+                    color = HmxColor.OnInk,
                 )
             }
             Spacer(Modifier.width(13.dp))
@@ -523,7 +541,7 @@ fun HmxLiquidGlassLeaderboardItem(
                 Text(
                     row.rankNo.toString(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isTop) HmxColor.White else HmxColor.InkSecondary,
+                    color = if (isTop) HmxColor.OnInk else HmxColor.InkSecondary,
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -603,7 +621,7 @@ fun HmxLiquidGlassNotificationCard(
                 Icon(
                     Icons.Rounded.Notifications,
                     contentDescription = null,
-                    tint = if (item.unread) HmxColor.White else HmxColor.InkSecondary,
+                    tint = if (item.unread) HmxColor.OnInk else HmxColor.InkSecondary,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -671,6 +689,278 @@ fun HmxLiquidGlassErrorState(
     onRetry: (() -> Unit)? = null,
 ) {
     GlassErrorState(message = message, modifier = modifier, onRetry = onRetry)
+}
+
+// ---------------------------------------------------------------------------
+// Appearance controls
+// ---------------------------------------------------------------------------
+
+/**
+ * A glass segmented control with a single animated selection pill. Used by the
+ * Appearance section, and available anywhere a theme-aware choice is needed.
+ * Every segment is at least 48dp tall and exposes its selected state.
+ */
+@Composable
+fun HmxLiquidGlassSegmentedControl(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    icons: List<ImageVector?> = emptyList(),
+    contentDescription: String = "Selection",
+) {
+    if (options.isEmpty()) return
+    val index = selectedIndex.coerceIn(0, options.lastIndex)
+    HmxLiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        shape = HmxShapes.pill,
+        level = HmxGlassLevel.Control,
+        fill = HmxColor.GlassControl,
+        elevation = 6.dp,
+        contentPadding = PaddingValues(4.dp),
+    ) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .semantics { this.contentDescription = contentDescription },
+        ) {
+            val segmentWidth = maxWidth / options.size
+            val offset by animateDpAsState(
+                targetValue = segmentWidth * index,
+                animationSpec = tween(durationMillis = 260),
+                label = "segmentOffset",
+            )
+            Box(
+                Modifier
+                    .offset(x = offset)
+                    .width(segmentWidth)
+                    .fillMaxHeight()
+                    .padding(2.dp)
+                    .clip(HmxShapes.pill)
+                    .background(HmxColor.Ink),
+            )
+            Row(Modifier.fillMaxSize()) {
+                options.forEachIndexed { i, label ->
+                    val selected = i == index
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .semantics {
+                                this.selected = selected
+                                this.contentDescription = label
+                            }
+                            .clickable(role = Role.RadioButton) { onSelect(i) },
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val icon = icons.getOrNull(i)
+                        if (icon != null) {
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                tint = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                                modifier = Modifier.size(17.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Settings -> Appearance. The selector and its preview use the same live glass
+ * material as the rest of the app, so the preview changes in the same frame as
+ * the theme.
+ */
+@Composable
+fun HmxLiquidGlassThemeSelector(
+    mode: HmxThemeMode,
+    onModeChange: (HmxThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = hmxColorScheme()
+    val modes = listOf(HmxThemeMode.LIGHT, HmxThemeMode.DARK, HmxThemeMode.SYSTEM)
+    val labels = listOf("Light", "Dark", "System")
+    val icons = listOf(Icons.Rounded.LightMode, Icons.Rounded.DarkMode, Icons.Rounded.SettingsBrightness)
+    val index = modes.indexOf(mode)
+    val activeLabel = if (scheme.isDark) "Dark glass" else "Light glass"
+
+    HmxLiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        shape = HmxShapes.card,
+        level = HmxGlassLevel.Card,
+        fill = HmxColor.Glass,
+        elevation = 10.dp,
+        contentPadding = PaddingValues(HmxDimens.cardPadding),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Text(
+                "Appearance",
+                style = MaterialTheme.typography.titleLarge,
+                color = HmxColor.Ink,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Choose how HMX Arena looks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = HmxColor.InkSecondary,
+            )
+            Spacer(Modifier.height(14.dp))
+            HmxLiquidGlassSegmentedControl(
+                options = labels,
+                selectedIndex = index,
+                onSelect = { onModeChange(modes[it]) },
+                icons = icons,
+                contentDescription = "Appearance theme",
+            )
+            Spacer(Modifier.height(14.dp))
+            HmxLiquidGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = HmxShapes.field,
+                level = HmxGlassLevel.Control,
+                fill = HmxColor.GlassControl,
+                elevation = 4.dp,
+                contentPadding = PaddingValues(14.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .clip(HmxShapes.small)
+                            .background(HmxColor.Ink),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "H",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = HmxColor.OnInk,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "HMX Arena",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = HmxColor.Ink,
+                        )
+                        Text(
+                            activeLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HmxColor.InkTertiary,
+                        )
+                    }
+                    HmxLiquidGlassChip(
+                        text = if (mode == HmxThemeMode.SYSTEM) "System" else labels[index],
+                        selected = true,
+                        onClick = {},
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Compatibility alias matching the shared component names in the brief. */
+@Composable
+fun HmxGlassThemeSelector(
+    mode: HmxThemeMode,
+    onModeChange: (HmxThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) = HmxLiquidGlassThemeSelector(mode, onModeChange, modifier)
+
+/**
+ * In-window glass form dialog. Unlike a Material [androidx.compose.material3.AlertDialog]
+ * this renders inside the same composition, so the backdrop recorded by the
+ * host is at the correct coordinates and the sheet really refracts the page.
+ */
+@Composable
+fun HmxLiquidGlassFormDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    title: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+    confirmEnabled: Boolean = true,
+    dismissLabel: String? = "Cancel",
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Box(Modifier.fillMaxSize().zIndex(60f), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(HmxColor.Scrim)
+                    .clickable(onClick = onDismiss),
+            )
+            HmxLiquidGlassSurface(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    ),
+                shape = HmxShapes.dialog,
+                level = HmxGlassLevel.Chrome,
+                fill = HmxColor.GlassChrome,
+                elevation = 28.dp,
+                contentPadding = PaddingValues(24.dp),
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink)
+                    Spacer(Modifier.height(14.dp))
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp)
+                            .verticalScroll(rememberScrollState()),
+                        content = content,
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (dismissLabel != null) {
+                            TextButton(onClick = onDismiss) {
+                                Text(
+                                    dismissLabel,
+                                    color = HmxColor.InkSecondary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+                            Text(
+                                confirmLabel,
+                                color = if (confirmEnabled) HmxColor.Ink else HmxColor.Disabled,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

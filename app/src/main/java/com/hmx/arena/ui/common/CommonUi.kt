@@ -197,44 +197,55 @@ fun GlassPasswordField(
     onImeAction: (() -> Unit)? = null,
 ) {
     var visible by remember { mutableStateOf(false) }
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+    HmxLiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
-        label = { Text(label, style = MaterialTheme.typography.bodySmall) },
-        isError = error != null,
-        supportingText = error?.let {
-            { Text(it, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger) }
-        },
-        singleLine = true,
         shape = HmxShapes.field,
-        textStyle = MaterialTheme.typography.bodyMedium,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = imeAction),
-        keyboardActions = KeyboardActions(onDone = { onImeAction?.invoke() }),
-        trailingIcon = {
-            IconButton(onClick = { visible = !visible }) {
-                Icon(
-                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                    contentDescription = if (visible) "Hide password" else "Show password",
-                    tint = HmxColor.InkSecondary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = HmxColor.Ink,
-            unfocusedTextColor = HmxColor.Ink,
-            focusedBorderColor = HmxColor.HairlineStrong,
-            unfocusedBorderColor = HmxColor.HairlineStrong,
-            errorBorderColor = HmxColor.Danger,
-            focusedContainerColor = HmxColor.GlassStrong,
-            unfocusedContainerColor = HmxColor.Glass,
-            cursorColor = HmxColor.Ink,
-            focusedLabelColor = HmxColor.InkSecondary,
-            unfocusedLabelColor = HmxColor.InkTertiary,
-        ),
-    )
+        level = HmxGlassLevel.Control,
+        fill = HmxColor.GlassControl,
+        elevation = 6.dp,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+            isError = error != null,
+            supportingText = error?.let {
+                { Text(it, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger) }
+            },
+            singleLine = true,
+            shape = HmxShapes.field,
+            textStyle = MaterialTheme.typography.bodyMedium,
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = imeAction),
+            keyboardActions = KeyboardActions(onDone = { onImeAction?.invoke() }),
+            trailingIcon = {
+                IconButton(onClick = { visible = !visible }) {
+                    Icon(
+                        if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = if (visible) "Hide password" else "Show password",
+                        tint = HmxColor.InkSecondary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = HmxColor.Ink,
+                unfocusedTextColor = HmxColor.Ink,
+                disabledTextColor = HmxColor.InkTertiary,
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                disabledBorderColor = Color.Transparent,
+                errorBorderColor = HmxColor.Danger,
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+                cursorColor = HmxColor.Ink,
+                focusedLabelColor = HmxColor.InkSecondary,
+                unfocusedLabelColor = HmxColor.InkTertiary,
+            ),
+        )
+    }
 }
 
 @Composable
@@ -276,7 +287,7 @@ fun StatusPill(text: String, modifier: Modifier = Modifier, filled: Boolean = fa
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = if (filled) HmxColor.White else HmxColor.InkSecondary,
+            color = if (filled) HmxColor.OnInk else HmxColor.InkSecondary,
             maxLines = 1,
         )
     }

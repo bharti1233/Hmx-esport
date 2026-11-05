@@ -187,7 +187,7 @@ fun CompleteProfileScreen(
                     Icon(
                         Icons.Rounded.SportsEsports,
                         contentDescription = null,
-                        tint = HmxColor.White,
+                        tint = HmxColor.OnInk,
                         modifier = Modifier.size(22.dp),
                     )
                 }

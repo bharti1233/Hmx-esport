@@ -150,7 +150,7 @@ fun HomeScreen(
                         Text(
                             if (unread > 9) "9+" else unread.toString(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = HmxColor.White,
+                            color = HmxColor.OnInk,
                         )
                     }
                 }

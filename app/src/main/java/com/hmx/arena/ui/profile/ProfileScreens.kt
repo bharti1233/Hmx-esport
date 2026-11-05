@@ -75,6 +75,7 @@ import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.HmxLiquidGlassFormDialog
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
@@ -200,14 +201,14 @@ fun ProfileScreen(nav: NavHostController, viewModel: ProfileViewModel = hiltView
                                             .size(30.dp)
                                             .clip(CircleShape)
                                             .background(HmxColor.Ink)
-                                            .border(HmxDimens.hairline, HmxColor.White, CircleShape)
+                                            .border(HmxDimens.hairline, HmxColor.OnInk.copy(alpha = 0.7f), CircleShape)
                                             .clickable(enabled = !ui.uploading, role = Role.Button, onClick = pick),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
                                             if (ui.uploading) Icons.Rounded.Edit else Icons.Rounded.Add,
                                             contentDescription = "Change avatar",
-                                            tint = HmxColor.White,
+                                            tint = HmxColor.OnInk,
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
@@ -686,68 +687,50 @@ private fun GameAccountDialog(
     var level by remember(existing) { mutableStateOf(existing?.level?.toString().orEmpty()) }
     var localError by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = HmxColor.White,
-        shape = HmxShapes.dialog,
-        title = {
-            Text(
-                if (existing == null) "Add game account" else "Edit game account",
-                style = MaterialTheme.typography.titleLarge,
-                color = HmxColor.Ink,
-            )
-        },
-        text = {
-            Column {
-                GlassTextField(
-                    value = ign,
-                    onValueChange = { ign = it.take(24); localError = null },
-                    label = "In-game name",
-                )
-                Spacer(Modifier.height(12.dp))
-                GlassTextField(
-                    value = uid,
-                    onValueChange = { value ->
-                        uid = value.filter(Char::isLetterOrDigit).take(24)
-                        localError = null
-                    },
-                    label = "Free Fire UID",
-                    keyboardType = KeyboardType.Number,
-                )
-                Spacer(Modifier.height(12.dp))
-                GlassTextField(
-                    value = level,
-                    onValueChange = { level = it.filter(Char::isDigit).take(3); localError = null },
-                    label = "Level (optional)",
-                    keyboardType = KeyboardType.Number,
-                )
-                if (localError != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(localError!!, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger)
-                } else if (error != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(error, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger)
-                }
+    HmxLiquidGlassFormDialog(
+        visible = true,
+        onDismiss = onDismiss,
+        title = if (existing == null) "Add game account" else "Edit game account",
+        confirmLabel = if (busy) "Saving…" else "Save",
+        confirmEnabled = !busy,
+        onConfirm = {
+            localError = when {
+                !Validation.isIgnValid(ign) -> "Enter an in-game name of 2-24 characters."
+                !Validation.isGameUidValid(uid) -> "Enter the UID shown in your Free Fire profile."
+                level.isNotBlank() && !Validation.isLevelValid(level) -> "Level must be between 1 and 100."
+                else -> null
             }
+            if (localError == null) onSave(ign, uid, level)
         },
-        confirmButton = {
-            TextButton(
-                enabled = !busy,
-                onClick = {
-                    localError = when {
-                        !Validation.isIgnValid(ign) -> "Enter an in-game name of 2-24 characters."
-                        !Validation.isGameUidValid(uid) -> "Enter the UID shown in your Free Fire profile."
-                        level.isNotBlank() && !Validation.isLevelValid(level) -> "Level must be between 1 and 100."
-                        else -> null
-                    }
-                    if (localError == null) onSave(ign, uid, level)
-                },
-            ) {
-                Text(if (busy) "Saving…" else "Save", color = HmxColor.Ink)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = HmxColor.InkSecondary) }
-        },
-    )
+    ) {
+        GlassTextField(
+            value = ign,
+            onValueChange = { ign = it.take(24); localError = null },
+            label = "In-game name",
+        )
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(
+            value = uid,
+            onValueChange = { value ->
+                uid = value.filter(Char::isLetterOrDigit).take(24)
+                localError = null
+            },
+            label = "Free Fire UID",
+            keyboardType = KeyboardType.Number,
+        )
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(
+            value = level,
+            onValueChange = { level = it.filter(Char::isDigit).take(3); localError = null },
+            label = "Level (optional)",
+            keyboardType = KeyboardType.Number,
+        )
+        if (localError != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(localError!!, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger)
+        } else if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error, style = MaterialTheme.typography.bodySmall, color = HmxColor.Danger)
+        }
+    }
 }

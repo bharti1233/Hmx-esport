@@ -59,6 +59,7 @@ import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.ui.common.GlassPasswordField
+import com.hmx.arena.ui.common.HmxLiquidGlassFormDialog
 import com.hmx.arena.ui.common.GlassTextField
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineSuccess
@@ -121,7 +122,7 @@ private fun BrandMark() {
                 .background(HmxColor.Ink),
             contentAlignment = Alignment.Center,
         ) {
-            Text("H", color = HmxColor.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("H", color = HmxColor.OnInk, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(10.dp))
         Text(
@@ -186,20 +187,16 @@ private fun AuthFrame(
 @Composable
 private fun PolicyDialog(kind: String, onDismiss: () -> Unit) {
     val (title, body) = LegalText.forKind(kind)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = HmxColor.White,
-        shape = HmxShapes.dialog,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink) },
-        text = {
-            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text(body, style = MaterialTheme.typography.bodySmall, color = HmxColor.InkSecondary)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close", color = HmxColor.Ink) }
-        },
-    )
+    HmxLiquidGlassFormDialog(
+        visible = true,
+        onDismiss = onDismiss,
+        title = title,
+        confirmLabel = "Close",
+        onConfirm = onDismiss,
+        dismissLabel = null,
+    ) {
+        Text(body, style = MaterialTheme.typography.bodySmall, color = HmxColor.InkSecondary)
+    }
 }
 
 @Composable
@@ -300,7 +297,7 @@ private fun FeatureLine(title: String, body: String) {
                 .background(HmxColor.Ink),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Check, contentDescription = null, tint = HmxColor.White, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.Check, contentDescription = null, tint = HmxColor.OnInk, modifier = Modifier.size(14.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column {
@@ -436,7 +433,7 @@ fun SignUpScreen(
                 colors = CheckboxDefaults.colors(
                     checkedColor = HmxColor.Ink,
                     uncheckedColor = HmxColor.HairlineStrong,
-                    checkmarkColor = HmxColor.White,
+                    checkmarkColor = HmxColor.OnInk,
                 ),
             )
             Column {

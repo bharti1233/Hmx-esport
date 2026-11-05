@@ -64,6 +64,8 @@ import com.hmx.arena.core.designsystem.GlassSurface
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
+import com.hmx.arena.core.designsystem.HmxThemeMode
+import com.hmx.arena.core.designsystem.ThemeViewModel
 import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.model.SupportMessage
 import com.hmx.arena.core.model.SupportTicket
@@ -75,6 +77,8 @@ import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.HmxLiquidGlassThemeSelector
+import com.hmx.arena.ui.common.HmxLiquidGlassFormDialog
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
@@ -95,6 +99,8 @@ import javax.inject.Inject
 @Composable
 fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltViewModel()) {
     val ui by viewModel.ui.collectAsState()
+    val themeViewModel: ThemeViewModel = hiltViewModel()
+    val themeMode by themeViewModel.mode.collectAsState()
     LaunchedEffect(Unit) { viewModel.load() }
     HmxPage(title = "Settings", onBack = { nav.popBackStack() }) {
         LazyColumn(
@@ -102,6 +108,12 @@ fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltVi
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item {
+                HmxLiquidGlassThemeSelector(
+                    mode = themeMode ?: HmxThemeMode.SYSTEM,
+                    onModeChange = themeViewModel::setMode,
+                )
+            }
             item {
                 GlassSectionHeader("Account")
                 GlassSurface(Modifier.fillMaxWidth()) {
@@ -423,57 +435,47 @@ fun AccountSettingsScreen(nav: NavHostController, viewModel: AccountSettingsView
     if (showEmailDialog) {
         var email by remember { mutableStateOf(ui.email) }
         var localEmailError by remember { mutableStateOf<String?>(null) }
-        AlertDialog(
-            onDismissRequest = {
+        HmxLiquidGlassFormDialog(
+            visible = true,
+            onDismiss = {
                 showEmailDialog = false
                 viewModel.clearMessage()
             },
-            containerColor = HmxColor.White,
-            shape = HmxShapes.dialog,
-            title = { Text("Change email", style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink) },
-            text = {
-                Column {
-                    Text(
-                        "A confirmation link is sent to the new address. The change is applied after you confirm it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HmxColor.InkSecondary,
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    GlassTextField(
-                        value = email,
-                        onValueChange = { email = it; localEmailError = null; viewModel.clearMessage() },
-                        label = "New email",
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done,
-                        error = localEmailError ?: ui.emailError,
-                        onImeAction = {
-                            if (Validation.isEmailValid(email)) {
-                                viewModel.changeEmail(email)
-                                showEmailDialog = false
-                            } else {
-                                localEmailError = "Enter a valid email address."
-                            }
-                        },
-                    )
+            title = "Change email",
+            confirmLabel = if (ui.changingEmail) "Sending…" else "Send confirmation",
+            confirmEnabled = !ui.changingEmail,
+            onConfirm = {
+                if (Validation.isEmailValid(email)) {
+                    viewModel.changeEmail(email)
+                    showEmailDialog = false
+                } else {
+                    localEmailError = "Enter a valid email address."
                 }
             },
-            confirmButton = {
-                TextButton(
-                    enabled = !ui.changingEmail,
-                    onClick = {
-                        if (Validation.isEmailValid(email)) {
-                            viewModel.changeEmail(email)
-                            showEmailDialog = false
-                        } else {
-                            localEmailError = "Enter a valid email address."
-                        }
-                    },
-                ) { Text(if (ui.changingEmail) "Sending…" else "Send confirmation", color = HmxColor.Ink) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEmailDialog = false }) { Text("Cancel", color = HmxColor.InkSecondary) }
-            },
-        )
+        ) {
+            Text(
+                "A confirmation link is sent to the new address. The change is applied after you confirm it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = HmxColor.InkSecondary,
+            )
+            Spacer(Modifier.height(14.dp))
+            GlassTextField(
+                value = email,
+                onValueChange = { email = it; localEmailError = null; viewModel.clearMessage() },
+                label = "New email",
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Done,
+                error = localEmailError ?: ui.emailError,
+                onImeAction = {
+                    if (Validation.isEmailValid(email)) {
+                        viewModel.changeEmail(email)
+                        showEmailDialog = false
+                    } else {
+                        localEmailError = "Enter a valid email address."
+                    }
+                },
+            )
+        }
     }
 
     if (confirmDelete) {

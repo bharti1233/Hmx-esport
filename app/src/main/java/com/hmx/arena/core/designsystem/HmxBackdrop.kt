@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -58,13 +57,15 @@ fun HmxGlassHost(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val scheme = hmxColorScheme()
     val effectsEnabled = remember(context) { liquidGlassSupported(context) }
+    val canvasColor = scheme.canvas
     val backdrop = rememberLayerBackdrop {
-        drawRect(HmxColor.Canvas)
+        drawRect(canvasColor)
         drawContent()
     }
 
-    Box(modifier.fillMaxSize().background(HmxColor.Canvas)) {
+    Box(modifier.fillMaxSize().background(canvasColor)) {
         Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
             background()
         }
@@ -86,109 +87,94 @@ fun liquidGlassSupported(context: Context): Boolean {
 /**
  * The visual substrate that makes glass read as glass.
  *
- * A plain white page cannot show refraction. This layer paints large soft grey
- * masses, two sweeping arcs and a ghost wordmark so blur and lens effects have
- * real contrast to distort. It stays strictly monochrome. The slow drift is
- * disabled when effects are unavailable, so low-RAM devices draw one static
- * frame.
+ * A plain page cannot show refraction. This layer paints one soft bloom, one
+ * diffuse neutral mass and two very low-contrast arcs so blur and lens have
+ * real detail to distort without competing with foreground text. Everything is
+ * derived from [HmxColorScheme] so Light and Dark are designed separately.
  */
 @Composable
 fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
-    // The backdrop is deliberately static. A perpetual transition would keep
-    // an offscreen layer invalidating every frame on every screen, which is
-    // wasteful on the low-RAM targets, and it would put the decorative layer
-    // out of phase with the copy recorded for the bottom bar. A fixed,
-    // high-contrast composition still gives blur and lens real detail to work
-    // with and keeps all glass surfaces sampling the exact same pixels.
-    val motion = 0.5f
+    val scheme = hmxColorScheme()
+    val bloomAlpha = if (scheme.isDark) 0.10f else 0.45f
+    val watermark = scheme.watermark
 
     Box(modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
-            drawRect(HmxColor.Canvas)
+            drawRect(scheme.canvas)
 
             val w = size.width
             val h = size.height
 
-            // Large bright bloom top-right.
+            // A single soft bloom in the top-right. In Dark it is a faint cool
+            // light source rather than a white glow.
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0x00FFFFFF)),
-                    center = Offset(w * 0.86f, h * 0.06f),
-                    radius = w * 0.92f,
+                    colors = listOf(
+                        scheme.backdropBloom.copy(alpha = bloomAlpha),
+                        scheme.backdropBloom.copy(alpha = 0f),
+                    ),
+                    center = Offset(w * 0.88f, h * 0.05f),
+                    radius = w * 0.78f,
                 ),
-                radius = w * 0.92f,
-                center = Offset(w * 0.86f, h * 0.06f),
+                radius = w * 0.78f,
+                center = Offset(w * 0.88f, h * 0.05f),
             )
 
-            // Soft graphite cloud bottom-left.
+            // Diffuse neutral mass, deliberately weak so it never turns into a
+            // grey slab crossing headings or cards.
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0x33BFC0C6), Color(0x00BFC0C6)),
-                    center = Offset(w * 0.02f, h * 0.78f),
-                    radius = w * 0.86f,
+                    colors = listOf(scheme.backdropCloud, scheme.backdropCloudSoft),
+                    center = Offset(w * 0.02f, h * 0.80f),
+                    radius = w * 0.72f,
                 ),
-                radius = w * 0.86f,
-                center = Offset(w * 0.02f, h * 0.78f),
+                radius = w * 0.72f,
+                center = Offset(w * 0.02f, h * 0.80f),
             )
-
-            // Mid grey mass that slides slowly behind the list.
-            val cloudX = w * (0.28f + 0.10f * motion)
-            val cloudY = h * (0.30f + 0.03f * motion)
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0x2ED2D2D8), Color(0x00D2D2D8)),
-                    center = Offset(cloudX, cloudY),
-                    radius = w * 0.68f,
+                    colors = listOf(scheme.backdropMid, scheme.backdropMid.copy(alpha = 0f)),
+                    center = Offset(w * 0.34f, h * 0.34f),
+                    radius = w * 0.56f,
                 ),
-                radius = w * 0.68f,
-                center = Offset(cloudX, cloudY),
+                radius = w * 0.56f,
+                center = Offset(w * 0.34f, h * 0.34f),
             )
 
-            // Two wide arcs give the lens shader a strong edge to bend.
+            // Two wide, low-contrast arcs give the lens shader a long edge to
+            // bend. They stay far below text contrast in both themes.
             drawArc(
-                color = Color(0x17101012),
-                startAngle = 196f + motion * 8f,
-                sweepAngle = 118f,
+                color = scheme.backdropArc,
+                startAngle = 198f,
+                sweepAngle = 112f,
                 useCenter = false,
-                topLeft = Offset(-w * 0.55f, h * 0.34f),
+                topLeft = Offset(-w * 0.55f, h * 0.40f),
                 size = androidx.compose.ui.geometry.Size(w * 1.45f, w * 1.45f),
-                style = Stroke(width = 42.dp.toPx(), cap = StrokeCap.Round),
+                style = Stroke(width = 34.dp.toPx(), cap = StrokeCap.Round),
             )
             drawArc(
-                color = Color(0x0F101012),
-                startAngle = 20f - motion * 6f,
-                sweepAngle = 96f,
+                color = scheme.backdropArcSoft,
+                startAngle = 18f,
+                sweepAngle = 92f,
                 useCenter = false,
-                topLeft = Offset(w * 0.18f, -h * 0.10f),
-                size = androidx.compose.ui.geometry.Size(w * 1.05f, w * 1.05f),
-                style = Stroke(width = 26.dp.toPx(), cap = StrokeCap.Round),
-            )
-
-            // A fine ring adds readable distortion without colour.
-            drawCircle(
-                color = Color(0x1A101012),
-                radius = w * 0.34f,
-                center = Offset(w * 0.84f, h * 0.58f),
-                style = Stroke(width = 1.dp.toPx()),
-            )
-            drawCircle(
-                color = Color(0x14101012),
-                radius = w * 0.46f,
-                center = Offset(w * 0.84f, h * 0.58f),
-                style = Stroke(width = 1.dp.toPx()),
+                topLeft = Offset(w * 0.22f, -h * 0.12f),
+                size = androidx.compose.ui.geometry.Size(w * 1.02f, w * 1.02f),
+                style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round),
             )
         }
 
+        // A small, low-contrast wordmark. It sits in the top corner at 4%
+        // opacity so it reads as texture, never as a heading.
         Text(
             text = "HMX",
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 72.dp, end = 12.dp)
+                .padding(top = 86.dp, end = 16.dp)
                 .rotate(-9f),
-            color = HmxColor.Ink.copy(alpha = 0.045f),
-            fontSize = 118.sp,
+            color = watermark,
+            fontSize = 84.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = (-6).sp,
+            letterSpacing = (-5).sp,
         )
     }
 }

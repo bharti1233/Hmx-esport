@@ -434,7 +434,7 @@ fun TournamentDetailScreen(
                                             Icon(
                                                 Icons.Rounded.EmojiEvents,
                                                 contentDescription = null,
-                                                tint = HmxColor.White,
+                                                tint = HmxColor.OnInk,
                                                 modifier = Modifier.size(17.dp),
                                             )
                                         }

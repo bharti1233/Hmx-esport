@@ -63,6 +63,7 @@ import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.GlassTextField
 import com.hmx.arena.ui.common.HmxGlassNotificationCard
+import com.hmx.arena.ui.common.HmxLiquidGlassFormDialog
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineSuccess
@@ -516,40 +517,30 @@ fun PlayerProfileScreen(nav: NavHostController, id: String, viewModel: PlayerPro
 
     if (showReport) {
         var reason by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showReport = false },
-            containerColor = HmxColor.White,
-            shape = HmxShapes.dialog,
-            title = { Text("Report player", style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink) },
-            text = {
-                Column {
-                    Text(
-                        "Describe cheating, harassment or impersonation. False reports can restrict your account.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HmxColor.InkSecondary,
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    GlassTextField(
-                        value = reason,
-                        onValueChange = { reason = it; viewModel.clearReportError() },
-                        label = "What happened?",
-                        maxLines = 4,
-                        error = ui.reportError,
-                    )
-                }
+        HmxLiquidGlassFormDialog(
+            visible = true,
+            onDismiss = { showReport = false },
+            title = "Report player",
+            confirmLabel = if (ui.reporting) "Sending…" else "Submit",
+            confirmEnabled = !ui.reporting,
+            onConfirm = {
+                viewModel.report(reason)
+                if (reason.trim().length >= 10) showReport = false
             },
-            confirmButton = {
-                TextButton(
-                    enabled = !ui.reporting,
-                    onClick = {
-                        viewModel.report(reason)
-                        if (reason.trim().length >= 10) showReport = false
-                    },
-                ) { Text(if (ui.reporting) "Sending…" else "Submit", color = HmxColor.Ink) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showReport = false }) { Text("Cancel", color = HmxColor.InkSecondary) }
-            },
-        )
+        ) {
+            Text(
+                "Describe cheating, harassment or impersonation. False reports can restrict your account.",
+                style = MaterialTheme.typography.bodySmall,
+                color = HmxColor.InkSecondary,
+            )
+            Spacer(Modifier.height(14.dp))
+            GlassTextField(
+                value = reason,
+                onValueChange = { reason = it; viewModel.clearReportError() },
+                label = "What happened?",
+                maxLines = 4,
+                error = ui.reportError,
+            )
+        }
     }
 }

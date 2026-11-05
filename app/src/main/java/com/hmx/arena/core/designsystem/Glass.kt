@@ -128,13 +128,14 @@ fun GlassScaffold(
 ) {
     val effectsEnabled = LocalHmxGlassEffects.current
     val rootBackdrop = LocalHmxBackdrop.current
+    val canvasColor = hmxColorScheme().canvas
 
     // The content layer is recorded separately from the chrome. That lets the
     // floating bottom bar refract the actual list scrolling underneath it,
     // while the bar itself stays outside the layer (no feedback loop).
     val contentBackdrop = if (effectsEnabled) {
         rememberLayerBackdrop {
-            drawRect(HmxColor.Canvas)
+            drawRect(canvasColor)
             drawContent()
         }
     } else {
@@ -287,14 +288,14 @@ fun GlassButton(
     val scale by animateFloatAsState(if (pressed && enabled) 0.98f else 1f)
     val fill = when (variant) {
         GlassButtonVariant.Primary -> HmxColor.GlassControl
-        GlassButtonVariant.Secondary -> Color.White.copy(alpha = 0.16f)
+        GlassButtonVariant.Secondary -> HmxColor.GlassMuted
         GlassButtonVariant.Ink -> if (enabled) HmxColor.Ink else HmxColor.Disabled
-        GlassButtonVariant.Danger -> Color.White.copy(alpha = 0.18f)
+        GlassButtonVariant.Danger -> HmxColor.GlassMuted
     }
     val contentColor = when (variant) {
         GlassButtonVariant.Primary -> HmxColor.Ink
         GlassButtonVariant.Secondary -> HmxColor.Ink
-        GlassButtonVariant.Ink -> HmxColor.White
+        GlassButtonVariant.Ink -> HmxColor.OnInk
         GlassButtonVariant.Danger -> HmxColor.Danger
     }
     HmxLiquidGlassSurface(
@@ -355,7 +356,7 @@ fun GlassChip(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val textColor = if (selected) HmxColor.White else HmxColor.InkSecondary
+    val textColor = if (selected) HmxColor.OnInk else HmxColor.InkSecondary
     HmxLiquidGlassSurface(
         modifier = modifier
             .height(38.dp)

@@ -121,14 +121,14 @@ fun HmxLiquidGlassBottomBar(
                         Icon(
                             tab.icon,
                             contentDescription = null,
-                            tint = if (selected) HmxColor.White else HmxColor.InkSecondary,
+                            tint = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             tab.label,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) HmxColor.White else HmxColor.InkSecondary,
+                            color = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
                         )
                         Spacer(Modifier.weight(1f))
                     }
