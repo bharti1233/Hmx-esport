@@ -727,7 +727,7 @@ fun HmxLiquidGlassSegmentedControl(
         ) {
             val segmentWidth = maxWidth / options.size
             val offset by animateDpAsState(
-                targetValue = segmentWidth * index,
+                targetValue = segmentWidth * index.toFloat(),
                 animationSpec = tween(durationMillis = 260),
                 label = "segmentOffset",
             )

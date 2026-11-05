@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,11 +53,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,34 +149,59 @@ class VisualTestActivity : ComponentActivity() {
 
         setContent {
             val mode by themeViewModel.mode.collectAsStateWithLifecycle()
-            HmxTheme(
-                mode = mode ?: HmxThemeMode.SYSTEM,
-                onModeChange = themeViewModel::setMode,
-            ) {
-                HmxGlassHost {
-                    val isDark = HmxColor.Ink.luminance() < 0.5f
-                    val toggle = {
-                        themeViewModel.setMode(
-                            if (isDark) HmxThemeMode.LIGHT else HmxThemeMode.DARK,
-                        )
-                    }
-                    when (screen) {
-                        "signin" -> SignInShowcase(onToggleTheme = toggle)
-                        "home" -> HomeShowcase(onToggleTheme = toggle)
-                        "arena" -> ArenaShowcase(onToggleTheme = toggle)
-                        "tournament" -> TournamentDetailShowcase(onToggleTheme = toggle)
-                        "matches" -> MatchesShowcase(onToggleTheme = toggle)
-                        "leaderboard" -> LeaderboardShowcase(onToggleTheme = toggle)
-                        "profile" -> ProfileShowcase(onToggleTheme = toggle)
-                        "settings" -> SettingsShowcase(
-                            mode = mode ?: HmxThemeMode.SYSTEM,
-                            onModeChange = themeViewModel::setMode,
-                        )
-                        else -> VisualDemo(
-                            initialState = initialState,
-                            initialScroll = initialScroll,
-                            onToggleTheme = toggle,
-                        )
+            val resolvedMode = mode ?: HmxThemeMode.SYSTEM
+            val systemDark = isSystemInDarkTheme()
+            val dark = when (resolvedMode) {
+                HmxThemeMode.LIGHT -> false
+                HmxThemeMode.DARK -> true
+                HmxThemeMode.SYSTEM -> systemDark
+            }
+            // The software-rendered emulator needs several seconds for the first
+            // blurred frame. Drawing a cheap placeholder first lets the window
+            // take focus before that long frame, otherwise Android reports an
+            // input-dispatch ANR and kills the process mid-capture.
+            var contentReady by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                withFrameNanos { }
+                contentReady = true
+            }
+            if (!contentReady) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(if (dark) Color(0xFF0B0B0C) else Color(0xFFFDFDFE)),
+                )
+            } else {
+                HmxTheme(
+                    mode = resolvedMode,
+                    onModeChange = themeViewModel::setMode,
+                ) {
+                    HmxGlassHost {
+                        val isDark = HmxColor.Ink.luminance() < 0.5f
+                        val toggle = {
+                            themeViewModel.setMode(
+                                if (isDark) HmxThemeMode.LIGHT else HmxThemeMode.DARK,
+                            )
+                        }
+                        when (screen) {
+                            "signin" -> SignInShowcase(onToggleTheme = toggle)
+                            "home" -> HomeShowcase(onToggleTheme = toggle)
+                            "arena" -> ArenaShowcase(onToggleTheme = toggle)
+                            "tournament" -> TournamentDetailShowcase(onToggleTheme = toggle)
+                            "matches" -> MatchesShowcase(onToggleTheme = toggle)
+                            "leaderboard" -> LeaderboardShowcase(onToggleTheme = toggle)
+                            "profile" -> ProfileShowcase(onToggleTheme = toggle)
+                            "settings" -> SettingsShowcase(
+                                mode = mode ?: HmxThemeMode.SYSTEM,
+                                onModeChange = themeViewModel::setMode,
+                            )
+                            else -> VisualDemo(
+                                initialState = initialState,
+                                initialScroll = initialScroll,
+                                onToggleTheme = toggle,
+                            )
+                        }
                     }
                 }
             }
