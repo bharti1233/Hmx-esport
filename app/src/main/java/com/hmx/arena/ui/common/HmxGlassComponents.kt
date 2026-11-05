@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -106,12 +107,19 @@ fun HmxLiquidGlassCard(
     contentPadding: Dp = HmxDimens.cardPadding,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     HmxLiquidGlassSurface(
         modifier = modifier
             .fillMaxWidth()
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Button,
+                        onClick = onClick,
+                    )
                 } else {
                     Modifier
                 },
@@ -122,7 +130,17 @@ fun HmxLiquidGlassCard(
         elevation = if (refractive) 16.dp else 10.dp,
         contentPadding = PaddingValues(contentPadding),
     ) {
-        Column(Modifier.fillMaxWidth(), content = content)
+        Box(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), content = content)
+            if (pressed) {
+                // Immediate physical feedback even while a new screen loads.
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .background(HmxColor.PressedOverlay, HmxShapes.card),
+                )
+            }
+        }
     }
 }
 

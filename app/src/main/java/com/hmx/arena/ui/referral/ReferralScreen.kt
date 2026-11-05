@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
@@ -58,6 +59,8 @@ import com.hmx.arena.ui.common.StatusPill
 import com.hmx.arena.ui.common.copyToClipboard
 import com.hmx.arena.ui.common.hmxMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,9 +91,14 @@ class ReferralViewModel @Inject constructor(
         viewModelScope.launch {
             _ui.update { it.copy(loading = it.code.isBlank(), error = null) }
             runCatching {
-                val profile = player.myProfile()
-                val claims = runCatching { player.referrals() }.getOrDefault(emptyList())
-                Triple(profile.referralCode.orEmpty(), profile.referredBy != null, claims)
+                coroutineScope {
+                    val profile = async { player.myProfile() }
+                    val claims = async {
+                        runCatching { player.referrals() }.getOrDefault(emptyList())
+                    }
+                    val loaded = profile.await()
+                    Triple(loaded.referralCode.orEmpty(), loaded.referredBy != null, claims.await())
+                }
             }
                 .onSuccess { (code, referred, claims) ->
                     _ui.update { it.copy(loading = false, code = code, referred = referred, claims = claims) }
@@ -132,7 +140,7 @@ class ReferralViewModel @Inject constructor(
 
 @Composable
 fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LaunchedEffect(Unit) { viewModel.load() }
 

@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.BuildConfig
 import com.hmx.arena.ui.common.GlassActionRow
@@ -65,7 +66,7 @@ import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.HmxThemeMode
-import com.hmx.arena.core.designsystem.ThemeViewModel
+import com.hmx.arena.core.designsystem.LocalHmxThemeState
 import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.model.SupportMessage
 import com.hmx.arena.core.model.SupportTicket
@@ -98,9 +99,12 @@ import javax.inject.Inject
 
 @Composable
 fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
-    val themeViewModel: ThemeViewModel = hiltViewModel()
-    val themeMode by themeViewModel.mode.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+    // Read the single app-wide state supplied by HmxTheme. Creating a second
+    // view model here scoped it to this navigation entry, so selecting a mode
+    // updated DataStore but not the root theme.
+    val themeState = LocalHmxThemeState.current
+    val themeMode = themeState?.mode ?: HmxThemeMode.SYSTEM
     LaunchedEffect(Unit) { viewModel.load() }
     HmxPage(title = "Settings", onBack = { nav.popBackStack() }) {
         LazyColumn(
@@ -110,8 +114,8 @@ fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltVi
         ) {
             item {
                 HmxLiquidGlassThemeSelector(
-                    mode = themeMode ?: HmxThemeMode.SYSTEM,
-                    onModeChange = themeViewModel::setMode,
+                    mode = themeMode,
+                    onModeChange = { themeState?.setMode?.invoke(it) },
                 )
             }
             item {
@@ -334,7 +338,7 @@ class AccountSettingsViewModel @Inject constructor(
 
 @Composable
 fun AccountSettingsScreen(nav: NavHostController, viewModel: AccountSettingsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var showEmailDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
@@ -568,7 +572,7 @@ class SupportViewModel @Inject constructor(
 
 @Composable
 fun SupportScreen(nav: NavHostController, viewModel: SupportViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.load() }
 
     HmxPage(
@@ -746,7 +750,7 @@ class TicketViewModel @Inject constructor(
 
 @Composable
 fun TicketScreen(nav: NavHostController, ticketId: String, viewModel: TicketViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(ticketId) { viewModel.load(ticketId) }
 
     HmxPage(title = "Ticket", onBack = { nav.popBackStack() }) {

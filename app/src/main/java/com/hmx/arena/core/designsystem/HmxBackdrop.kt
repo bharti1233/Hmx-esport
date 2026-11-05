@@ -95,7 +95,9 @@ fun liquidGlassSupported(context: Context): Boolean {
 @Composable
 fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
     val scheme = hmxColorScheme()
-    val bloomAlpha = if (scheme.isDark) 0.10f else 0.45f
+    // Dark bloom is deliberately weak: a large white radial on near-black
+    // reads as a grey patch behind cards.
+    val bloomAlpha = if (scheme.isDark) 0.035f else 0.45f
     val watermark = scheme.watermark
 
     Box(modifier.fillMaxSize()) {

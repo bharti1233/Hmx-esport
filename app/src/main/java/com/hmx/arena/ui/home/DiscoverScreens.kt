@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
@@ -119,7 +120,7 @@ class NotificationsViewModel @Inject constructor(
 
 @Composable
 fun NotificationsScreen(nav: NavHostController, viewModel: NotificationsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(
         title = "Notifications",
         onBack = { nav.popBackStack() },
@@ -182,7 +183,7 @@ class AnnouncementsViewModel @Inject constructor(
 
 @Composable
 fun AnnouncementsScreen(nav: NavHostController, viewModel: AnnouncementsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(title = "Announcements", onBack = { nav.popBackStack() }) {
         when {
             ui.loading -> LoadingBlock("Loading announcements")
@@ -255,7 +256,7 @@ class AnnouncementViewModel @Inject constructor(
 
 @Composable
 fun AnnouncementScreen(nav: NavHostController, id: String, viewModel: AnnouncementViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     HmxPage(title = "Announcement", onBack = { nav.popBackStack() }) {
         when {
@@ -333,7 +334,7 @@ class SearchViewModel @Inject constructor(
 
 @Composable
 fun SearchScreen(nav: NavHostController, viewModel: SearchViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(title = "Search", onBack = { nav.popBackStack() }) {
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -453,7 +454,7 @@ class PlayerProfileViewModel @Inject constructor(
 
 @Composable
 fun PlayerProfileScreen(nav: NavHostController, id: String, viewModel: PlayerProfileViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var showReport by remember { mutableStateOf(false) }
     LaunchedEffect(id) { viewModel.load(id) }
 

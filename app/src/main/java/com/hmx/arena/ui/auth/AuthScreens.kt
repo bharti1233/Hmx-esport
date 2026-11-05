@@ -68,6 +68,7 @@ import com.hmx.arena.ui.common.StatusPill
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.heightIn
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val WELCOME = "welcome"
 private const val LOGIN = "login"
@@ -315,7 +316,7 @@ fun LoginScreen(
     onSignUp: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     AuthFrame(
         title = "Welcome back.",
         subtitle = "Sign in to pick up your next match.",
@@ -379,7 +380,7 @@ fun SignUpScreen(
     onVerify: (String) -> Unit,
     viewModel: SignUpViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var policy by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(ui.verifyEmail) {
@@ -489,7 +490,7 @@ fun VerifyEmailScreen(
     onBack: () -> Unit,
     viewModel: VerifyEmailViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(email) { viewModel.start(email) }
 
     AuthFrame(
@@ -555,7 +556,7 @@ fun ForgotPasswordScreen(
     onBack: () -> Unit,
     viewModel: ForgotPasswordViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     AuthFrame(
         title = if (ui.sent) "Reset link sent." else "Reset your password.",
         subtitle = if (ui.sent) {
@@ -614,7 +615,7 @@ fun RecoveryResetScreen(
     onDone: () -> Unit,
     viewModel: RecoveryResetViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.prepare(tokenHash) }
 
     if (ui.preparing) {

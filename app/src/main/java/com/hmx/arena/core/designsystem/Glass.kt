@@ -130,10 +130,10 @@ fun GlassScaffold(
     val rootBackdrop = LocalHmxBackdrop.current
     val canvasColor = hmxColorScheme().canvas
 
-    // The content layer is recorded separately from the chrome. That lets the
-    // floating bottom bar refract the actual list scrolling underneath it,
-    // while the bar itself stays outside the layer (no feedback loop).
-    val contentBackdrop = if (effectsEnabled) {
+    // The content layer is only needed when a bottom bar must refract real
+    // scrolling content. Recording it for every screen doubles the graphics
+    // work (and battery cost) with no visual benefit.
+    val contentBackdrop = if (effectsEnabled && bottomBar != null) {
         rememberLayerBackdrop {
             drawRect(canvasColor)
             drawContent()
@@ -248,11 +248,21 @@ fun GlassIconButton(
     enabled: Boolean = true,
     tint: Color = HmxColor.Ink,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && enabled) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 90),
+        label = "iconPressScale",
+    )
     HmxLiquidGlassSurface(
         modifier = modifier
             .size(HmxDimens.iconButton)
+            .scale(scale)
             .clickable(
                 enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -268,6 +278,15 @@ fun GlassIconButton(
                 contentDescription = null,
                 tint = if (enabled) tint else HmxColor.Disabled,
                 modifier = Modifier.size(20.dp),
+            )
+        }
+        if (pressed) {
+            // Immediate local feedback, drawn above the glass surface so it
+            // cannot be hidden by the backdrop effect.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(HmxColor.PressedOverlay, CircleShape),
             )
         }
     }

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
@@ -100,7 +101,7 @@ class RulesViewModel @Inject constructor(
 
 @Composable
 fun TournamentRulesScreen(nav: NavHostController, id: String, viewModel: RulesViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     HmxPage(title = "Rules", onBack = { nav.popBackStack() }) {
         when {
@@ -195,7 +196,7 @@ fun TournamentParticipantsScreen(
     id: String,
     viewModel: ParticipantsViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     HmxPage(title = "Participants", onBack = { nav.popBackStack() }) {
         when {
@@ -278,7 +279,7 @@ class ScheduleViewModel @Inject constructor(
 
 @Composable
 fun TournamentScheduleScreen(nav: NavHostController, id: String, viewModel: ScheduleViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     HmxPage(title = "Schedule", onBack = { nav.popBackStack() }) {
         when {
@@ -335,7 +336,7 @@ fun TournamentLeaderboardScreen(
     id: String,
     viewModel: TournamentRankViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     HmxPage(title = "Tournament ranks", onBack = { nav.popBackStack() }) {
         when {

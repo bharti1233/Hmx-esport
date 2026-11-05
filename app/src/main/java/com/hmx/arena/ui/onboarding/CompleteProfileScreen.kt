@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassScreenBackground
 import com.hmx.arena.core.designsystem.HmxColor
@@ -110,6 +111,7 @@ class CompleteProfileViewModel @Inject constructor(
 
     fun submit(withGameAccount: Boolean = true) {
         val current = _ui.value
+        if (current.saving) return
         val displayError = if (current.displayName.trim().length !in 2..30) {
             "Display name must be 2-30 characters."
         } else null
@@ -160,7 +162,7 @@ fun CompleteProfileScreen(
     onSignOut: (() -> Unit)? = null,
     viewModel: CompleteProfileViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(ui.done) {
         if (ui.done) onCompleted()
     }

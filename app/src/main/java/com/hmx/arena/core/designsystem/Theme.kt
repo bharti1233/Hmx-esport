@@ -94,6 +94,7 @@ data class HmxColorScheme(
     val onInk: Color,
     val hairline: Color,
     val hairlineStrong: Color,
+    val pressedOverlay: Color,
     val shadow: Color,
     val shadowSoft: Color,
     val scrim: Color,
@@ -125,6 +126,7 @@ val HmxLightColorScheme: HmxColorScheme = HmxColorScheme(
     onInk = Color(0xFFFFFFFF),
     hairline = Color(0x1A0B0B0C),
     hairlineStrong = Color(0x330B0B0C),
+    pressedOverlay = Color(0x140B0B0C),
     shadow = Color(0x1F000000),
     shadowSoft = Color(0x0F000000),
     scrim = Color(0x33000000),
@@ -161,13 +163,15 @@ val HmxLightColorScheme: HmxColorScheme = HmxColorScheme(
         innerShadowAlpha = 0.07f,
     ),
     effects = HmxGlassEffects(
-        cardBlurRadius = 3.dp,
-        controlBlurRadius = 6.dp,
-        chromeBlurRadius = 18.dp,
-        controlLensHeight = 8.dp,
-        controlLensAmount = 12.dp,
-        chromeLensHeight = 18.dp,
-        chromeLensAmount = 24.dp,
+        // Card surfaces are the most numerous: they keep vibrancy, a specular
+        // lip and a fine edge, but no blur/lens, which keeps long lists smooth.
+        cardBlurRadius = 0.dp,
+        controlBlurRadius = 5.dp,
+        chromeBlurRadius = 16.dp,
+        controlLensHeight = 6.dp,
+        controlLensAmount = 9.dp,
+        chromeLensHeight = 14.dp,
+        chromeLensAmount = 18.dp,
     ),
 )
 
@@ -185,49 +189,54 @@ val HmxDarkColorScheme: HmxColorScheme = HmxColorScheme(
     onInk = Color(0xFF09090A),
     hairline = Color(0x24FFFFFF),
     hairlineStrong = Color(0x3DFFFFFF),
+    pressedOverlay = Color(0x1CFFFFFF),
     shadow = Color(0x66000000),
     shadowSoft = Color(0x33000000),
     scrim = Color(0x70000000),
     danger = Color(0xFFFF8A8A),
     disabled = Color(0xFF5F5F68),
-    backdropBloom = Color(0xFFFFFFFF),
-    backdropCloud = Color(0x17C9C9D2),
+    // Dark bloom is a faint neutral light source, never a white glow. This is
+    // the main safeguard against "light patches" behind dark glass.
+    backdropBloom = Color(0xFFC1C5CE),
+    backdropCloud = Color(0x0FC9C9D2),
     backdropCloudSoft = Color(0x00C9C9D2),
-    backdropMid = Color(0x12EDEDF2),
-    backdropArc = Color(0x1AFFFFFF),
-    backdropArcSoft = Color(0x0FFFFFFF),
-    backdropRing = Color(0x12FFFFFF),
-    watermark = Color(0x14F5F5F7),
+    backdropMid = Color(0x0AEDEDF2),
+    backdropArc = Color(0x0FFFFFFF),
+    backdropArcSoft = Color(0x08FFFFFF),
+    backdropRing = Color(0x0AFFFFFF),
+    watermark = Color(0x0AF5F5F7),
     glass = HmxGlassTokens(
         surface = Color(0x3D17171A),
         surfaceStrong = Color(0x701D1D21),
         surfaceMuted = Color(0x241F1F24),
         chrome = Color(0x4D141417),
         control = Color(0x5C1D1D21),
-        edge = Color(0x5CFFFFFF),
+        edge = Color(0x33FFFFFF),
         ink = Color(0xE6F5F5F7),
-        sheenColor = Color(0xFFFFFFFF),
-        surfaceTopBoost = 0.06f,
-        surfaceBottomFactor = 0.86f,
-        sheenAlpha = 0.10f,
-        chromeSheenAlpha = 0.18f,
-        highlightColor = Color(0xFFFFFFFF),
-        highlightAlpha = 0.45f,
-        chromeHighlightAlpha = 0.80f,
+        // A neutral cool highlight, not pure white, so dark glass reads as
+        // smoked glass rather than a bright plastic sheet.
+        sheenColor = Color(0xFFE2E4EA),
+        surfaceTopBoost = 0.03f,
+        surfaceBottomFactor = 0.95f,
+        sheenAlpha = 0.05f,
+        chromeSheenAlpha = 0.09f,
+        highlightColor = Color(0xFFE2E4EA),
+        highlightAlpha = 0.25f,
+        chromeHighlightAlpha = 0.45f,
         outerShadowColor = Color(0xFF000000),
-        outerShadowAlpha = 0.24f,
-        chromeOuterShadowAlpha = 0.36f,
+        outerShadowAlpha = 0.30f,
+        chromeOuterShadowAlpha = 0.42f,
         innerShadowColor = Color(0xFF000000),
-        innerShadowAlpha = 0.28f,
+        innerShadowAlpha = 0.25f,
     ),
     effects = HmxGlassEffects(
-        cardBlurRadius = 4.dp,
-        controlBlurRadius = 7.dp,
-        chromeBlurRadius = 20.dp,
-        controlLensHeight = 8.dp,
-        controlLensAmount = 12.dp,
-        chromeLensHeight = 18.dp,
-        chromeLensAmount = 24.dp,
+        cardBlurRadius = 0.dp,
+        controlBlurRadius = 5.dp,
+        chromeBlurRadius = 16.dp,
+        controlLensHeight = 6.dp,
+        controlLensAmount = 9.dp,
+        chromeLensHeight = 14.dp,
+        chromeLensAmount = 18.dp,
     ),
 )
 
@@ -349,6 +358,10 @@ object HmxColor {
         @Composable
         @ReadOnlyComposable
         get() = LocalHmxColorScheme.current.hairlineStrong
+    val PressedOverlay: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalHmxColorScheme.current.pressedOverlay
     val Shadow: Color
         @Composable
         @ReadOnlyComposable

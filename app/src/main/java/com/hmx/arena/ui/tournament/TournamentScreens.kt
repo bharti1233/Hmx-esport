@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
@@ -88,6 +89,8 @@ import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
 import com.hmx.arena.ui.common.HmxGlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -151,7 +154,7 @@ class TournamentsViewModel @Inject constructor(
 
 @Composable
 fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
 
     HmxPage(
         title = "Arena",
@@ -270,15 +273,25 @@ class TournamentDetailViewModel @Inject constructor(
             runCatching {
                 val tournament = repository.tournament(id)
                     ?: throw ApiException("This tournament could not be found.")
-                TournamentDetailData(
-                    tournament = tournament,
-                    rules = runCatching { repository.rules(id) }.getOrDefault(emptyList()),
-                    participants = runCatching { player.participants(id) }.getOrDefault(emptyList()),
-                    matches = runCatching { repository.tournamentMatches(id) }.getOrDefault(emptyList()),
-                    registration = runCatching { repository.registrations() }
-                        .getOrDefault(emptyList())
-                        .firstOrNull { it.tournamentId == id },
-                )
+                // Rules, participants, matches and the caller's registration
+                // are independent reads; fetch them together.
+                coroutineScope {
+                    val rules = async { runCatching { repository.rules(id) }.getOrDefault(emptyList()) }
+                    val participants = async { runCatching { player.participants(id) }.getOrDefault(emptyList()) }
+                    val matches = async { runCatching { repository.tournamentMatches(id) }.getOrDefault(emptyList()) }
+                    val registration = async {
+                        runCatching { repository.registrations() }
+                            .getOrDefault(emptyList())
+                            .firstOrNull { it.tournamentId == id }
+                    }
+                    TournamentDetailData(
+                        tournament = tournament,
+                        rules = rules.await(),
+                        participants = participants.await(),
+                        matches = matches.await(),
+                        registration = registration.await(),
+                    )
+                }
             }
                 .onSuccess { data -> _ui.update { it.copy(loading = false, data = data) } }
                 .onFailure { e -> _ui.update { it.copy(loading = false, error = e.hmxMessage()) } }
@@ -307,7 +320,7 @@ fun TournamentDetailScreen(
     id: String,
     viewModel: TournamentDetailViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var confirmCancel by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 

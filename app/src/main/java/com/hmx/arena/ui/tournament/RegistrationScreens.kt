@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
@@ -63,6 +64,8 @@ import com.hmx.arena.ui.common.StatusPill
 import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -101,13 +104,24 @@ class RegisterViewModel @Inject constructor(
             runCatching {
                 val tournament = tournaments.tournament(id)
                     ?: throw ApiException("This tournament could not be found.")
-                val registrations = runCatching { tournaments.registrations() }.getOrDefault(emptyList())
-                RegisterData(
-                    tournament = tournament,
-                    team = runCatching { teams.myTeam() }.getOrNull(),
-                    hasGameAccount = runCatching { player.gameAccounts().isNotEmpty() }.getOrDefault(false),
-                    alreadyRegistered = registrations.any { it.tournamentId == id && it.status != "cancelled" },
-                )
+                coroutineScope {
+                    val registrations = async {
+                        runCatching { tournaments.registrations() }.getOrDefault(emptyList())
+                    }
+                    val team = async { runCatching { teams.myTeam() }.getOrNull() }
+                    val gameAccounts = async {
+                        runCatching { player.gameAccounts().isNotEmpty() }.getOrDefault(false)
+                    }
+                    val registered = registrations.await()
+                    RegisterData(
+                        tournament = tournament,
+                        team = team.await(),
+                        hasGameAccount = gameAccounts.await(),
+                        alreadyRegistered = registered.any {
+                            it.tournamentId == id && it.status != "cancelled"
+                        },
+                    )
+                }
             }
                 .onSuccess { data -> _ui.value = RegisterUi(false, data) }
                 .onFailure { e -> _ui.value = RegisterUi(false, null, e.hmxMessage()) }
@@ -148,7 +162,7 @@ fun RegisterTournamentScreen(
     id: String,
     viewModel: RegisterViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
     LaunchedEffect(ui.done) { if (ui.done) nav.popBackStack() }
 
@@ -332,7 +346,7 @@ class MyRegistrationsViewModel @Inject constructor(
 
 @Composable
 fun MyRegistrationsScreen(nav: NavHostController, viewModel: MyRegistrationsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<RegRow?>(null) }
     LaunchedEffect(Unit) { viewModel.load() }
 

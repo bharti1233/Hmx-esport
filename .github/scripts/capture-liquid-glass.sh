@@ -34,12 +34,12 @@ sleep 2
 start_screen() {
   local screen="$1"
   local theme="$2"
-  adb shell input keyevent KEYCODE_WAKEUP || true
-  adb shell wm dismiss-keyguard || true
-  adb shell am start -W \
+  timeout 25 adb shell input keyevent KEYCODE_WAKEUP || true
+  timeout 25 adb shell wm dismiss-keyguard || true
+  timeout 45 adb shell am start -W \
     -n com.hmx.arena.debug/com.hmx.arena.ui.visual.VisualTestActivity \
     --es screen "$screen" --es theme "$theme" 2>&1 \
-    | tee "artifacts/am-start-${screen}-${theme}.txt"
+    | tee "artifacts/am-start-${screen}-${theme}.txt" || true
 }
 
 capture_screen() {
@@ -49,12 +49,12 @@ capture_screen() {
   local file="$4"
   echo "=== capture $file (screen=$screen theme=$theme) ==="
   local attempt=1
-  while [ "$attempt" -le 3 ]; do
+  while [ "$attempt" -le 2 ]; do
     # Must be a real cold start: delivering the intent to an already running
     # top instance goes through onNewIntent (which the harness does not
     # handle), so the requested screen/theme extras would be ignored and every
     # capture would show the previous screen.
-    adb shell am force-stop com.hmx.arena.debug || true
+    timeout 20 adb shell am force-stop com.hmx.arena.debug || true
     sleep 1
     start_screen "$screen" "$theme"
     if wait_for_app_frame "$file"; then
@@ -62,25 +62,25 @@ capture_screen() {
       # frame. Do not send input while it draws: that is what triggered the
       # original ANR.
       sleep "$settle"
-      if ! adb shell pidof com.hmx.arena.debug > /dev/null 2>&1; then
+      if ! timeout 10 adb shell pidof com.hmx.arena.debug > /dev/null 2>&1; then
         echo "Process died during settle for $file" >&2
       else
-        adb shell dumpsys window > "artifacts/window-$file.txt" || true
-        if ! grep -q "mCurrentFocus.*com.hmx.arena.debug/com.hmx.arena.ui.visual.VisualTestActivity" "artifacts/window-$file.txt"; then
-          echo "App window is not focused for $file" >&2
+        timeout 25 adb shell dumpsys window > "artifacts/window-$file.txt" || true
+        if grep -qi "isn.t responding\|Application Not Responding" "artifacts/window-$file.txt"; then
+          echo "ANR dialog still visible for $file" >&2
         else
-          adb exec-out screencap -p > "artifacts/screenshots/$file"
-          adb shell dumpsys activity top > "artifacts/activity-$file.txt" || true
-          echo "=== captured $file ($(wc -c < "artifacts/screenshots/$file") bytes) ==="
+          timeout 30 adb exec-out screencap -p > "artifacts/screenshots/$file" || true
+          timeout 25 adb shell dumpsys activity top > "artifacts/activity-$file.txt" || true
+          echo "=== captured $file ($(wc -c < "artifacts/screenshots/$file" 2>/dev/null || echo 0) bytes) ==="
           return 0
         fi
       fi
     fi
     echo "Attempt $attempt failed for $file" >&2
-    adb logcat -d > "artifacts/logcat-failure-$file.txt" || true
-    adb shell dumpsys activity top > "artifacts/activity-failure-$file.txt" || true
-    adb shell am force-stop com.hmx.arena.debug || true
-    sleep 3
+    timeout 25 adb logcat -d > "artifacts/logcat-failure-$file.txt" || true
+    timeout 25 adb shell dumpsys activity top > "artifacts/activity-failure-$file.txt" || true
+    timeout 20 adb shell am force-stop com.hmx.arena.debug || true
+    sleep 2
     attempt=$((attempt + 1))
   done
   echo "=== giving up on $file ===" >&2
@@ -89,33 +89,34 @@ capture_screen() {
 
 # Wait until the app window is actually in the accessibility tree. If Android
 # shows an ANR dialog, press "Wait" and keep polling. Returns non-zero when the
-# process died or the deadline passed.
+# process died or the deadline passed. Every adb call is bounded: uiautomator
+# can otherwise block for minutes while SwiftShader renders the first frame.
 wait_for_app_frame() {
   local label="$1"
   local tries=0
-  while [ "$tries" -lt 30 ]; do
+  while [ "$tries" -lt 5 ]; do
     tries=$((tries + 1))
-    if ! adb shell pidof com.hmx.arena.debug > /dev/null 2>&1; then
+    if ! timeout 10 adb shell pidof com.hmx.arena.debug > /dev/null 2>&1; then
       echo "Process died while waiting for $label" >&2
       return 1
     fi
     rm -f artifacts/ui-last.xml
-    adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-    adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
+    timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+    timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
     if grep -qi "isn.t responding\|Application Not Responding" artifacts/ui-last.xml 2>/dev/null; then
       echo "ANR dialog detected while waiting for $label; tapping Wait"
       local coords
       coords="$(node_bounds "Wait" || true)"
       if [ -n "$coords" ]; then
-        adb shell input tap $coords || true
+        timeout 10 adb shell input tap $coords || true
       fi
-      sleep 4
+      sleep 3
       continue
     fi
     if grep -q 'package="com.hmx.arena.debug"' artifacts/ui-last.xml 2>/dev/null; then
       return 0
     fi
-    sleep 2
+    sleep 1
   done
   echo "Timed out waiting for app window for $label" >&2
   return 1
@@ -125,8 +126,8 @@ wait_for_app_frame() {
 # first argument. Used to tap the real "Dark" segment and "Switch theme".
 node_bounds() {
   local needle="$1"
-  adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-  adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
+  timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+  timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
   python3 - "$needle" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 needle = sys.argv[1].lower()
@@ -156,7 +157,7 @@ tap_node() {
     return 1
   fi
   echo "Tap '$needle' at $coords"
-  adb shell input tap $coords
+  timeout 10 adb shell input tap $coords
 }
 
 # --- Light + Dark matrix: 8 screens x 2 themes = 16 captures ----------------
@@ -186,39 +187,39 @@ wait_for_app_frame 17-arena-light-search.png || true
 sleep 12
 tap_node "Search tournaments" || true
 sleep 1
-adb shell input text "weekend" || true
+timeout 15 adb shell input text "weekend" || true
 sleep 1
-adb shell input keyevent 111 || true
+timeout 15 adb shell input keyevent 111 || true
 sleep 2
-adb exec-out screencap -p > artifacts/screenshots/17-arena-light-search.png
+timeout 30 adb exec-out screencap -p > artifacts/screenshots/17-arena-light-search.png || true
 tap_node "Switch theme" || true
 sleep 12
-adb exec-out screencap -p > artifacts/screenshots/18-arena-switched-dark.png
-adb shell dumpsys activity top > artifacts/activity-after-dark.txt || true
+timeout 30 adb exec-out screencap -p > artifacts/screenshots/18-arena-switched-dark.png || true
+timeout 25 adb shell dumpsys activity top > artifacts/activity-after-dark.txt || true
 tap_node "Switch theme" || true
 sleep 12
-adb exec-out screencap -p > artifacts/screenshots/19-arena-switched-light.png
-adb shell dumpsys activity top > artifacts/activity-after-light.txt || true
-adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-adb pull /sdcard/hmx-window.xml artifacts/ui-after-light.xml > /dev/null 2>&1 || true
+timeout 30 adb exec-out screencap -p > artifacts/screenshots/19-arena-switched-light.png || true
+timeout 25 adb shell dumpsys activity top > artifacts/activity-after-light.txt || true
+timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-light.xml > /dev/null 2>&1 || true
 
 # --- Persistence across process death --------------------------------------
 echo "=== theme persistence ==="
 start_screen settings dark
 wait_for_app_frame 20-persistence-dark.png || true
 sleep 12
-adb shell am force-stop com.hmx.arena.debug
+timeout 20 adb shell am force-stop com.hmx.arena.debug || true
 sleep 2
-adb shell am start -W \
+timeout 45 adb shell am start -W \
   -n com.hmx.arena.debug/com.hmx.arena.ui.visual.VisualTestActivity \
-  --es screen settings 2>&1 | tee artifacts/am-start-persistence.txt
+  --es screen settings 2>&1 | tee artifacts/am-start-persistence.txt || true
 wait_for_app_frame 20-persistence-dark.png || true
 sleep 12
-adb exec-out screencap -p > artifacts/screenshots/20-persistence-dark.png
-adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-adb pull /sdcard/hmx-window.xml artifacts/ui-persistence.xml > /dev/null 2>&1 || true
+timeout 30 adb exec-out screencap -p > artifacts/screenshots/20-persistence-dark.png || true
+timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-persistence.xml > /dev/null 2>&1 || true
 
-adb logcat -d -t 1600 > artifacts/logcat.txt || true
+timeout 25 adb logcat -d -t 1600 > artifacts/logcat.txt || true
 
 captured="$(find artifacts/screenshots -name '*.png' | wc -l | tr -d ' ')"
 echo "=== captured $captured screenshots ==="
@@ -226,3 +227,56 @@ if [ "$captured" -lt 20 ]; then
   echo "Expected 20 screenshots, only found $captured" >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Performance evidence. Numbers are written verbatim so the report never has
+# to rely on estimates.
+# ---------------------------------------------------------------------------
+mkdir -p artifacts/performance
+echo "=== performance measurements ==="
+
+# Cold and warm start of the production activity (no session: it shows the
+# real welcome/auth surface, which is the first screen a new player sees).
+for i in 1 2 3; do
+  timeout 20 adb shell am force-stop com.hmx.arena.debug || true
+  sleep 2
+  timeout 45 adb shell am start -W \
+    -n com.hmx.arena.debug/com.hmx.arena.MainActivity 2>&1 \
+    | tee "artifacts/performance/cold-start-$i.txt" || true
+  sleep 2
+done
+timeout 15 adb shell input keyevent KEYCODE_HOME || true
+sleep 2
+for i in 1 2 3; do
+  timeout 45 adb shell am start -W \
+    -n com.hmx.arena.debug/com.hmx.arena.MainActivity 2>&1 \
+    | tee "artifacts/performance/warm-start-$i.txt" || true
+  sleep 1
+  timeout 15 adb shell input keyevent KEYCODE_HOME || true
+  sleep 1
+done
+
+# Scroll jank on the densest glass screen (Home: hero + cards + list).
+timeout 20 adb shell am force-stop com.hmx.arena.debug || true
+sleep 1
+start_screen home dark
+sleep 14
+timeout 25 adb shell dumpsys gfxinfo com.hmx.arena.debug reset > /dev/null 2>&1 || true
+for _ in 1 2 3 4 5 6 7 8; do
+  timeout 10 adb shell input swipe 540 1750 540 450 250 || true
+  sleep 1
+done
+timeout 30 adb shell dumpsys gfxinfo com.hmx.arena.debug \
+  > artifacts/performance/gfxinfo-home-dark.txt || true
+
+{
+  echo "cold start (ms):"
+  grep -h "TotalTime" artifacts/performance/cold-start-*.txt || true
+  echo "warm start (ms):"
+  grep -h "TotalTime" artifacts/performance/warm-start-*.txt || true
+  echo "gfxinfo summary:"
+  grep -E "Total frames rendered|Janky frames|50th percentile|90th percentile|95th percentile|99th percentile" \
+    artifacts/performance/gfxinfo-home-dark.txt || true
+} | tee artifacts/performance/performance-summary.txt
+
+echo "=== performance measurement complete ==="

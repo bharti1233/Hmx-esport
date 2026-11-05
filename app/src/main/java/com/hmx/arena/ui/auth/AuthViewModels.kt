@@ -34,6 +34,8 @@ class LoginViewModel @Inject constructor(
     fun setPassword(value: String) = _ui.update { it.copy(password = value, passwordError = null, error = null) }
 
     fun submit() {
+        // Ignore repeat taps while the request is in flight.
+        if (_ui.value.loading) return
         val current = _ui.value
         val emailError = if (!Validation.isEmailValid(current.email)) "Enter a valid email address." else null
         val passwordError = if (current.password.isBlank()) "Enter your password." else null
@@ -78,6 +80,8 @@ class SignUpViewModel @Inject constructor(
     fun setAccepted(value: Boolean) = _ui.update { it.copy(accepted = value, error = null) }
 
     fun submit() {
+        // Ignore repeat taps while the request is in flight.
+        if (_ui.value.loading) return
         val current = _ui.value
         val usernameError = if (!Validation.isUsernameValid(current.username)) {
             "3-24 letters, numbers or underscores."
@@ -147,6 +151,8 @@ class VerifyEmailViewModel @Inject constructor(
     }
 
     fun submit() {
+        // Ignore repeat taps while the request is in flight.
+        if (_ui.value.loading) return
         val current = _ui.value
         if (!Validation.isOtpValid(current.token)) {
             _ui.update { it.copy(tokenError = "Enter the 6-digit code from your email.") }
@@ -201,6 +207,8 @@ class ForgotPasswordViewModel @Inject constructor(
     fun setEmail(value: String) = _ui.update { it.copy(email = value, emailError = null, error = null) }
 
     fun submit() {
+        // Ignore repeat taps while the request is in flight.
+        if (_ui.value.loading) return
         val current = _ui.value
         if (!Validation.isEmailValid(current.email)) {
             _ui.update { it.copy(emailError = "Enter a valid email address.") }
@@ -260,6 +268,8 @@ class RecoveryResetViewModel @Inject constructor(
     fun setConfirm(value: String) = _ui.update { it.copy(confirm = value, error = null) }
 
     fun submit() {
+        // Ignore repeat taps while the request is in flight.
+        if (_ui.value.loading) return
         val current = _ui.value
         if (!Validation.isPasswordValid(current.password)) {
             _ui.update { it.copy(passwordError = "Use at least 8 characters.") }

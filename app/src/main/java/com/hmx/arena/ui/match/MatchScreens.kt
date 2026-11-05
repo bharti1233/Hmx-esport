@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.hmx.arena.core.designsystem.GlassButton
@@ -118,7 +119,7 @@ class MatchesViewModel @Inject constructor(
 
 @Composable
 fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(
         title = "Matches",
         actions = {
@@ -225,7 +226,7 @@ class MatchDetailViewModel @Inject constructor(
 
 @Composable
 fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetailViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
 
     HmxPage(title = "Match", onBack = { nav.popBackStack() }) {
@@ -410,7 +411,7 @@ class MatchCredentialsViewModel @Inject constructor(
 
 @Composable
 fun MatchCredentialsScreen(nav: NavHostController, id: String, viewModel: MatchCredentialsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LaunchedEffect(id) { viewModel.load(id) }
 
@@ -493,7 +494,7 @@ class MatchResultsViewModel @Inject constructor(
 
 @Composable
 fun MatchResultsScreen(nav: NavHostController, id: String, viewModel: MatchResultsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
 
     HmxPage(title = "Results", onBack = { nav.popBackStack() }) {
@@ -616,6 +617,7 @@ class SubmitResultViewModel @Inject constructor(
 
     fun submit() {
         val current = _ui.value
+        if (current.busy) return
         val match = current.match ?: return
         val placement = current.placement.toIntOrNull()
         val kills = current.kills.toIntOrNull() ?: 0
@@ -652,7 +654,7 @@ class SubmitResultViewModel @Inject constructor(
 
 @Composable
 fun SubmitResultScreen(nav: NavHostController, id: String, viewModel: SubmitResultViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val (picked, pick) = rememberPickedImage()
     LaunchedEffect(id) { viewModel.load(id) }
     LaunchedEffect(picked) { viewModel.setEvidence(picked) }
@@ -775,6 +777,7 @@ class DisputeViewModel @Inject constructor(
     fun setReason(value: String) = _ui.update { it.copy(reason = value.take(1000), error = null) }
 
     fun submit(resultId: String) {
+        if (_ui.value.busy) return
         val reason = _ui.value.reason.trim()
         if (reason.length < 10) {
             _ui.update { it.copy(error = "Describe the issue in at least 10 characters.") }
@@ -791,7 +794,7 @@ class DisputeViewModel @Inject constructor(
 
 @Composable
 fun DisputeScreen(nav: NavHostController, resultId: String, viewModel: DisputeViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var showSuccess by remember { mutableStateOf(false) }
     LaunchedEffect(ui.done) { if (ui.done) showSuccess = true }
 

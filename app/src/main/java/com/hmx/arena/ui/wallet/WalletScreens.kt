@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassSectionHeader
 import com.hmx.arena.core.designsystem.GlassSurface
@@ -49,6 +50,8 @@ import com.hmx.arena.ui.common.StatusPill
 import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,15 +79,14 @@ class WalletViewModel @Inject constructor(
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = _ui.value.wallet == null, error = null)
             runCatching {
-                Triple(
-                    player.wallet(),
-                    runCatching { player.ledger() }.getOrDefault(emptyList()),
-                    runCatching { player.flags() }.getOrDefault(emptyMap()),
-                )
-            }
-                .onSuccess { (wallet, ledger, flags) ->
-                    _ui.value = WalletUi(false, wallet, ledger, flags)
+                coroutineScope {
+                    val wallet = async { player.wallet() }
+                    val ledger = async { runCatching { player.ledger() }.getOrDefault(emptyList()) }
+                    val flags = async { runCatching { player.flags() }.getOrDefault(emptyMap()) }
+                    WalletUi(false, wallet.await(), ledger.await(), flags.await())
                 }
+            }
+                .onSuccess { loaded -> _ui.value = loaded }
                 .onFailure { e -> _ui.value = _ui.value.copy(loading = false, error = e.hmxMessage()) }
         }
     }
@@ -92,7 +94,7 @@ class WalletViewModel @Inject constructor(
 
 @Composable
 fun WalletScreen(nav: NavHostController, viewModel: WalletViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(title = "Wallet", onBack = { nav.popBackStack() }) {
         when {
             ui.loading -> LoadingBlock("Loading wallet")
@@ -269,7 +271,7 @@ class TransactionsViewModel @Inject constructor(
 
 @Composable
 fun TransactionsScreen(nav: NavHostController, viewModel: TransactionsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(title = "Transactions", onBack = { nav.popBackStack() }) {
         when {
             ui.loading -> LoadingBlock("Loading transactions")

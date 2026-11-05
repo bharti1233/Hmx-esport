@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassChip
 import com.hmx.arena.core.designsystem.GlassSurface
@@ -107,7 +108,7 @@ class LeaderboardViewModel @Inject constructor(
 
 @Composable
 fun LeaderboardScreen(nav: NavHostController, viewModel: LeaderboardViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     HmxPage(
         title = "Leaderboard",
         actions = {

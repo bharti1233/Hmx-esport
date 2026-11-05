@@ -24,6 +24,37 @@ import javax.inject.Singleton
 private val Context.themeDataStore by preferencesDataStore(name = "hmx_theme")
 
 /**
+ * Synchronous mirror of the appearance choice, used only before Compose starts
+ * so the platform splash screen matches an explicitly selected in-app theme
+ * (for example Dark chosen while Android itself is in Light mode). DataStore
+ * remains the source of truth; this file is a tiny, write-through cache.
+ */
+object HmxThemeBootstrap {
+    private const val PREFS = "hmx_theme_sync"
+    private const val KEY = "mode"
+
+    fun resolveDark(context: Context): Boolean {
+        val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY, null)
+        val systemDark = (context.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        return when (stored) {
+            HmxThemeMode.DARK.name -> true
+            HmxThemeMode.LIGHT.name -> false
+            else -> systemDark
+        }
+    }
+
+    internal fun write(context: Context, mode: HmxThemeMode) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY, mode.name)
+            .apply()
+    }
+}
+
+/**
  * Persists the appearance preference. The default is SYSTEM so a first launch
  * follows the device until the player explicitly chooses.
  */
@@ -45,7 +76,11 @@ class ThemePreferences @Inject constructor(
         context.themeDataStore.edit { prefs ->
             prefs[Keys.mode] = mode.name
         }
+        HmxThemeBootstrap.write(context, mode)
     }
+
+    /** Keeps the pre-Compose splash cache aligned with the persisted mode. */
+    fun syncSplashCache(mode: HmxThemeMode) = HmxThemeBootstrap.write(context, mode)
 }
 
 /**
@@ -68,7 +103,10 @@ class ThemeViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.mode.collect { stored ->
                 // Do not overwrite a just-selected value with a stale emission.
-                if (_mode.value == null) _mode.value = stored
+                if (_mode.value == null) {
+                    _mode.value = stored
+                    preferences.syncSplashCache(stored)
+                }
             }
         }
     }

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.hmx.arena.core.designsystem.GlassButton
@@ -72,6 +73,8 @@ import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.common.rememberPickedImage
 import com.hmx.arena.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -103,9 +106,13 @@ class TeamViewModel @Inject constructor(
         viewModelScope.launch {
             _ui.update { it.copy(loading = it.team == null, error = null) }
             runCatching {
-                val team = repository.myTeam()
-                val invitations = runCatching { repository.myInvitations() }.getOrDefault(emptyList())
-                team to invitations
+                coroutineScope {
+                    val team = async { repository.myTeam() }
+                    val invitations = async {
+                        runCatching { repository.myInvitations() }.getOrDefault(emptyList())
+                    }
+                    team.await() to invitations.await()
+                }
             }
                 .onSuccess { (team, invitations) ->
                     _ui.update { it.copy(loading = false, team = team, invitations = invitations) }
@@ -141,7 +148,7 @@ class TeamViewModel @Inject constructor(
 
 @Composable
 fun TeamScreen(nav: NavHostController, viewModel: TeamViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.load() }
@@ -420,6 +427,7 @@ class CreateTeamViewModel @Inject constructor(
 
     fun submit() {
         val current = _ui.value
+        if (current.loading) return
         val nameError = if (!Validation.isTeamNameValid(current.name)) "Team name must be 3-24 characters." else null
         val tagError = if (!Validation.isTeamTagValid(current.tag)) "Tag must be 2-5 characters." else null
         if (nameError != null || tagError != null) {
@@ -437,7 +445,7 @@ class CreateTeamViewModel @Inject constructor(
 
 @Composable
 fun CreateTeamScreen(nav: NavHostController, viewModel: CreateTeamViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(ui.done) { if (ui.done) nav.popBackStack() }
     HmxPage(title = "Create team", onBack = { nav.popBackStack() }) {
         Column(Modifier.fillMaxSize().padding(20.dp)) {
@@ -510,6 +518,7 @@ class InviteViewModel @Inject constructor(
     fun setUsername(value: String) = _ui.update { it.copy(username = value, error = null, message = null) }
 
     fun invite() {
+        if (_ui.value.busy) return
         val id = teamId ?: return
         val username = _ui.value.username.trim().removePrefix("@")
         if (!Validation.isUsernameValid(username)) {
@@ -529,7 +538,7 @@ class InviteViewModel @Inject constructor(
 
 @Composable
 fun InvitePlayerScreen(nav: NavHostController, teamId: String, viewModel: InviteViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(teamId) { viewModel.load(teamId) }
     HmxPage(title = "Invite player", onBack = { nav.popBackStack() }) {
         Column(Modifier.fillMaxSize().padding(20.dp)) {
@@ -613,7 +622,7 @@ class InvitationsViewModel @Inject constructor(
 
 @Composable
 fun InvitationsScreen(nav: NavHostController, viewModel: InvitationsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.load() }
     HmxPage(title = "Invitations", onBack = { nav.popBackStack() }) {
         when {
@@ -695,11 +704,16 @@ class ManageTeamViewModel @Inject constructor(
             teamId = id
             _ui.update { it.copy(loading = it.detail == null, error = null) }
             runCatching {
-                val detail = repository.teamDetail(id)
-                    ?: throw com.hmx.arena.data.remote.ApiException("Team not found.")
-                Triple(detail, repository.invitationsForTeam(id), Unit)
+                coroutineScope {
+                    val detail = async {
+                        repository.teamDetail(id)
+                            ?: throw com.hmx.arena.data.remote.ApiException("Team not found.")
+                    }
+                    val invites = async { repository.invitationsForTeam(id) }
+                    detail.await() to invites.await()
+                }
             }
-                .onSuccess { (detail, invites, _) ->
+                .onSuccess { (detail, invites) ->
                     _ui.update {
                         it.copy(
                             loading = false,
@@ -719,6 +733,7 @@ class ManageTeamViewModel @Inject constructor(
 
     fun save() {
         val current = _ui.value
+        if (current.saving) return
         val detail = current.detail ?: return
         if (!Validation.isTeamNameValid(current.name) || !Validation.isTeamTagValid(current.tag)) {
             _ui.update { it.copy(error = "Team name must be 3-24 characters and tag 2-5 characters.") }
@@ -775,7 +790,7 @@ class ManageTeamViewModel @Inject constructor(
 
 @Composable
 fun ManageTeamScreen(nav: NavHostController, viewModel: ManageTeamViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val (logo, pickLogo) = rememberPickedImage()
     var confirmDelete by remember { mutableStateOf(false) }
     var transferTarget by remember { mutableStateOf<TeamMember?>(null) }

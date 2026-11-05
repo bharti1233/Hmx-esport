@@ -13,6 +13,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.hmx.arena.core.designsystem.HmxTheme
+import com.hmx.arena.core.designsystem.HmxThemeBootstrap
 import com.hmx.arena.core.designsystem.HmxThemeMode
 import com.hmx.arena.core.designsystem.ThemeViewModel
 import com.hmx.arena.data.remote.SessionManager
@@ -31,6 +32,11 @@ class MainActivity : ComponentActivity() {
     private val deepLink = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Match the platform splash to an explicitly selected in-app theme.
+        // values-night already handles the System-dark case.
+        if (HmxThemeBootstrap.resolveDark(this)) {
+            setTheme(R.style.Theme_HMXArena_Splash_Dark)
+        }
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         // Hold the splash until DataStore has resolved SYSTEM/LIGHT/DARK. A

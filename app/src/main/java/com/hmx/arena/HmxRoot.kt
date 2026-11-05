@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.remote.SessionState
 import com.hmx.arena.data.repository.AuthRepository
@@ -66,7 +67,7 @@ fun HmxRoot(
     deepLink: String?,
     onDeepLinkHandled: () -> Unit,
 ) {
-    val sessionState by session.state.collectAsState()
+    val sessionState by session.state.collectAsStateWithLifecycle()
     var recoveryMode by remember { mutableStateOf(false) }
     var recoveryToken by remember { mutableStateOf<String?>(null) }
     var processingLink by remember { mutableStateOf(false) }
@@ -110,7 +111,7 @@ fun HmxRoot(
         sessionState is SessionState.SignedOut -> AuthFlow()
         sessionState is SessionState.SignedIn -> {
             val userId = (sessionState as SessionState.SignedIn).userId
-            SignedInGate(userId = userId)
+            SignedInGate(userId = userId, session = session)
         }
         }
     }
@@ -137,6 +138,7 @@ data class GateUi(
 @HiltViewModel
 class SignedInGateViewModel @Inject constructor(
     private val player: PlayerRepository,
+    private val session: SessionManager,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(GateUi())
     val ui: StateFlow<GateUi> = _ui.asStateFlow()
@@ -146,7 +148,10 @@ class SignedInGateViewModel @Inject constructor(
             _ui.update { it.copy(loading = true, error = null) }
             runCatching { player.myProfile() }
                 .onSuccess { profile ->
-                    _ui.value = GateUi(loading = false, needsOnboarding = !profile.onboardingCompleted)
+                    val needsOnboarding = !profile.onboardingCompleted
+                    // Keep the local decision in sync for the next launch.
+                    session.setOnboardingCompleted(!needsOnboarding)
+                    _ui.value = GateUi(loading = false, needsOnboarding = needsOnboarding)
                 }
                 .onFailure { e ->
                     _ui.value = GateUi(loading = false, error = e.hmxMessage())
@@ -158,14 +163,19 @@ class SignedInGateViewModel @Inject constructor(
 @Composable
 private fun SignedInGate(
     userId: String,
+    session: SessionManager,
     viewModel: SignedInGateViewModel = hiltViewModel(),
 ) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val cachedOnboarding = remember(userId) { session.snapshotOnboardingCompleted() }
     LaunchedEffect(userId) { viewModel.load() }
 
     when {
-        ui.loading -> LoadingScreen()
-        ui.error != null -> InlineError(ui.error!!, onRetry = viewModel::load)
+        // A cached completed profile lets the dashboard render on the first
+        // frame; the profile refresh still runs and redirects if the server
+        // says onboarding is actually incomplete.
+        ui.loading && !cachedOnboarding -> LoadingScreen()
+        ui.error != null && !cachedOnboarding -> InlineError(ui.error!!, onRetry = viewModel::load)
         else -> MainNavHost(
             startDestination = if (ui.needsOnboarding) Routes.COMPLETE_PROFILE else Routes.HOME,
         )

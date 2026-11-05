@@ -94,7 +94,11 @@ fun Modifier.hmxLiquidGlass(
                         )
                     }
                     else -> {
-                        blur(radius = effects.cardBlurRadius.toPx())
+                        // Card level is intentionally vibrancy-only. Cards are
+                        // the most common surface on scrolling screens; a blur
+                        // RenderEffect per row is the main jank source on
+                        // low-end devices, and the sheen/edge still read as
+                        // glass above the recorded backdrop.
                     }
                 }
             },
@@ -128,17 +132,19 @@ fun Modifier.hmxLiquidGlass(
                 null
             },
             onDrawSurface = {
+                // Base tint is derived from the surface fill itself. Using the
+                // sheen colour here would paint a white wash over dark glass.
                 val topAlpha = (fill.alpha + tokens.surfaceTopBoost).coerceAtMost(0.94f)
                 val bottomAlpha = (fill.alpha * tokens.surfaceBottomFactor).coerceAtLeast(0.08f)
                 drawRect(
                     Brush.verticalGradient(
-                        0f to tokens.sheenColor.copy(alpha = topAlpha),
+                        0f to fill.copy(alpha = topAlpha),
                         0.28f to fill,
                         1f to fill.copy(alpha = bottomAlpha),
                     ),
                 )
                 // A narrow specular sheen along the top lip. In Dark this is a
-                // soft grey reflection, not a white plastic gloss.
+                // soft neutral reflection, not a white plastic gloss.
                 drawRect(
                     Brush.verticalGradient(
                         0f to tokens.sheenColor.copy(
@@ -170,13 +176,15 @@ private fun Modifier.hmxGlassFallback(
         .clip(shape)
         .background(
             brush = Brush.verticalGradient(
-                0f to tokens.sheenColor.copy(alpha = (fill.alpha + tokens.surfaceTopBoost).coerceAtMost(0.9f)),
+                0f to fill.copy(
+                    alpha = (fill.alpha + tokens.surfaceTopBoost).coerceAtMost(0.9f),
+                ),
                 0.35f to fill,
                 1f to fill.copy(alpha = (fill.alpha * tokens.surfaceBottomFactor).coerceAtLeast(0.18f)),
             ),
             shape = shape,
         )
-        .border(0.75.dp, tokens.edge.copy(alpha = if (scheme.isDark) 0.5f else 0.55f), shape)
+        .border(0.75.dp, tokens.edge.copy(alpha = tokens.edge.alpha * 0.8f), shape)
 }
 
 /**

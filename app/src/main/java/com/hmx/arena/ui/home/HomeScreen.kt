@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassIconButton
@@ -71,6 +72,8 @@ import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
 import com.hmx.arena.ui.shell.GlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -99,14 +102,25 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = _state.value.data == null, refreshing = true, error = null)
             runCatching {
-                val profile = player.myProfile()
-                HomeData(
-                    profile = profile,
-                    featured = runCatching { tournaments.featured() }.getOrDefault(emptyList()),
-                    upcoming = runCatching { tournaments.myMatches() }.getOrDefault(emptyList()),
-                    announcements = runCatching { player.announcements() }.getOrDefault(emptyList()),
-                    unread = runCatching { player.notifications().count { it.unread } }.getOrDefault(0),
-                )
+                // These five calls are independent. Running them sequentially
+                // added their latencies together and was the main reason the
+                // dashboard took around a second to appear.
+                coroutineScope {
+                    val profile = async { player.myProfile() }
+                    val featured = async { runCatching { tournaments.featured() }.getOrDefault(emptyList()) }
+                    val upcoming = async { runCatching { tournaments.myMatches() }.getOrDefault(emptyList()) }
+                    val announcements = async { runCatching { player.announcements() }.getOrDefault(emptyList()) }
+                    val unread = async {
+                        runCatching { player.notifications().count { it.unread } }.getOrDefault(0)
+                    }
+                    HomeData(
+                        profile = profile.await(),
+                        featured = featured.await(),
+                        upcoming = upcoming.await(),
+                        announcements = announcements.await(),
+                        unread = unread.await(),
+                    )
+                }
             }
                 .onSuccess { _state.value = UiState(loading = false, data = it, refreshing = false) }
                 .onFailure { e ->
@@ -125,7 +139,7 @@ fun HomeScreen(
     nav: NavHostController,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val data = state.data
 
     com.hmx.arena.ui.common.HmxPage(

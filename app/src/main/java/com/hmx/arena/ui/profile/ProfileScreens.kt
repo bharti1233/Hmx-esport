@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.hmx.arena.ui.common.GlassActionRow
 import com.hmx.arena.core.designsystem.GlassButton
@@ -158,7 +159,7 @@ class ProfileViewModel @Inject constructor(
 
 @Composable
 fun ProfileScreen(nav: NavHostController, viewModel: ProfileViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val (picked, pick) = rememberPickedImage()
     LaunchedEffect(Unit) { viewModel.load() }
     LaunchedEffect(picked) { picked?.let(viewModel::uploadAvatar) }
@@ -393,6 +394,7 @@ class EditProfileViewModel @Inject constructor(
 
     fun save() {
         val current = _ui.value
+        if (current.saving) return
         val displayError = if (current.displayName.trim().length !in 2..30) {
             "Display name must be 2-30 characters."
         } else null
@@ -415,7 +417,7 @@ class EditProfileViewModel @Inject constructor(
 
 @Composable
 fun EditProfileScreen(nav: NavHostController, viewModel: EditProfileViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     val (picked, pick) = rememberPickedImage()
     LaunchedEffect(picked) { picked?.let(viewModel::uploadAvatar) }
     LaunchedEffect(ui.done) { if (ui.done) nav.popBackStack() }
@@ -542,7 +544,7 @@ class GameAccountsViewModel @Inject constructor(
 
 @Composable
 fun GameAccountsScreen(nav: NavHostController, viewModel: GameAccountsViewModel = hiltViewModel()) {
-    val ui by viewModel.ui.collectAsState()
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<PlayerGameAccount?>(null) }
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<PlayerGameAccount?>(null) }

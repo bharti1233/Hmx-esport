@@ -2,6 +2,7 @@ package com.hmx.arena.data.remote
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -60,6 +61,7 @@ class SessionManager @Inject constructor(
     @Volatile private var userId: String? = null
     @Volatile private var email: String? = null
     @Volatile private var expiresAtMillis: Long = 0
+    @Volatile private var onboardingCompleted: Boolean = false
 
     private object Keys {
         val access = stringPreferencesKey("access_token")
@@ -67,6 +69,7 @@ class SessionManager @Inject constructor(
         val user = stringPreferencesKey("user_id")
         val email = stringPreferencesKey("email")
         val expires = longPreferencesKey("expires_at")
+        val onboarding = booleanPreferencesKey("onboarding_completed")
     }
 
     suspend fun bootstrap() {
@@ -76,6 +79,7 @@ class SessionManager @Inject constructor(
         userId = prefs[Keys.user]
         email = prefs[Keys.email]
         expiresAtMillis = prefs[Keys.expires] ?: 0L
+        onboardingCompleted = prefs[Keys.onboarding] ?: false
         val uid = userId
         _state.value = if (uid.isNullOrBlank()) SessionState.SignedOut else SessionState.SignedIn(uid, email)
     }
@@ -83,6 +87,21 @@ class SessionManager @Inject constructor(
     fun snapshotUserId(): String? = userId
 
     fun snapshotEmail(): String? = email
+
+    /**
+     * Last known onboarding decision for the signed-in user, cached so the
+     * dashboard can render immediately on the next launch instead of waiting
+     * for a profile round-trip. The cache is refreshed from the server on every
+     * launch and cleared on sign-out.
+     */
+    fun snapshotOnboardingCompleted(): Boolean = onboardingCompleted
+
+    fun setOnboardingCompleted(value: Boolean) {
+        onboardingCompleted = value
+        scope.launch {
+            context.sessionDataStore.edit { prefs -> prefs[Keys.onboarding] = value }
+        }
+    }
 
     fun accessToken(): String? = accessToken
 
@@ -118,6 +137,7 @@ class SessionManager @Inject constructor(
         userId = null
         email = null
         expiresAtMillis = 0L
+        onboardingCompleted = false
         _state.value = SessionState.SignedOut
         scope.launch {
             context.sessionDataStore.edit { it.clear() }
