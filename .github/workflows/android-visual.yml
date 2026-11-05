@@ -11,6 +11,7 @@ on:
       - "app/build.gradle.kts"
       - "gradle/libs.versions.toml"
       - ".github/workflows/android-visual.yml"
+      - ".github/scripts/capture-liquid-glass.sh"
   pull_request:
     paths:
       - "app/src/main/java/com/hmx/arena/core/designsystem/**"

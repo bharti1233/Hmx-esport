@@ -50,6 +50,12 @@ capture_screen() {
   echo "=== capture $file (screen=$screen theme=$theme) ==="
   local attempt=1
   while [ "$attempt" -le 3 ]; do
+    # Must be a real cold start: delivering the intent to an already running
+    # top instance goes through onNewIntent (which the harness does not
+    # handle), so the requested screen/theme extras would be ignored and every
+    # capture would show the previous screen.
+    adb shell am force-stop com.hmx.arena.debug || true
+    sleep 1
     start_screen "$screen" "$theme"
     if wait_for_app_frame "$file"; then
       # Software rendering needs a long settle time for the first composed
