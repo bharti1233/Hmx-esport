@@ -440,11 +440,16 @@ fun GlassChip(
         elevation = 6.dp,
         contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // Size to the label. `fillMaxSize()` here made a chip placed in a Row
+        // consume all remaining width, squeezing siblings to a single
+        // character column (visible in the Settings appearance preview).
+        Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
                 color = if (enabled) textColor else HmxColor.Disabled,
+                maxLines = 1,
+                softWrap = false,
             )
         }
     }
