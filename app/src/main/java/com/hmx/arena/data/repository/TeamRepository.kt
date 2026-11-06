@@ -8,6 +8,8 @@ import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.remote.SupabaseConfig
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -37,22 +39,32 @@ class TeamRepository @Inject constructor(
     }
 
     suspend fun teamDetail(teamId: String): TeamDetail? {
-        val team = remote.selectOne("teams", mapOf("id" to "eq.$teamId"), Team.serializer()) ?: return null
-        val members = remote.select(
-            "team_members",
-            mapOf("team_id" to "eq.$teamId", "order" to "role.asc"),
-            TeamMember.serializer(),
-        )
-        val profiles = if (members.isEmpty()) {
-            emptyList()
-        } else {
-            remote.select(
-                "profiles",
-                mapOf("id" to "in.(${members.joinToString(",") { it.userId }})"),
-                Profile.serializer(),
-            )
+        // The team row and its member list are independent reads; the profile
+        // lookup below still depends on the member ids.
+        return coroutineScope {
+            val teamDeferred = async {
+                remote.selectOne("teams", mapOf("id" to "eq.$teamId"), Team.serializer())
+            }
+            val membersDeferred = async {
+                remote.select(
+                    "team_members",
+                    mapOf("team_id" to "eq.$teamId", "order" to "role.asc"),
+                    TeamMember.serializer(),
+                )
+            }
+            val team = teamDeferred.await() ?: return@coroutineScope null
+            val members = membersDeferred.await()
+            val profiles = if (members.isEmpty()) {
+                emptyList()
+            } else {
+                remote.select(
+                    "profiles",
+                    mapOf("id" to "in.(${members.joinToString(",") { it.userId }})"),
+                    Profile.serializer(),
+                )
+            }
+            TeamDetail(team, members, profiles)
         }
-        return TeamDetail(team, members, profiles)
     }
 
     suspend fun createTeam(name: String, tag: String, game: String = "free_fire"): Team = remote.rpc(

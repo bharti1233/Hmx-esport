@@ -13,6 +13,8 @@ import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.remote.SupabaseConfig
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -153,24 +155,33 @@ class TournamentRepository @Inject constructor(
         val registrations = registrations().filter { it.status == "confirmed" || it.status == "waitlisted" }
         if (registrations.isEmpty()) return emptyList()
         val tournamentIds = registrations.map { it.tournamentId }.distinct()
-        val tournaments = remote.select(
-            "tournaments",
-            mapOf("id" to "in.(${tournamentIds.joinToString(",")})"),
-            Tournament.serializer(),
-        ).associateBy { it.id }
-        val matches = remote.select(
-            "matches",
-            mapOf(
-                "tournament_id" to "in.(${tournamentIds.joinToString(",")})",
-                "order" to "scheduled_at.asc",
-            ),
-            Match.serializer(),
-        )
-        return matches.mapNotNull { match ->
-            val registration = registrations.firstOrNull { it.tournamentId == match.tournamentId }
-                ?: return@mapNotNull null
-            val tournament = tournaments[match.tournamentId] ?: return@mapNotNull null
-            MyMatch(match, tournament, registration)
+        // The two reads are independent; running them sequentially made the
+        // home dashboard pay both latencies back to back.
+        return coroutineScope {
+            val tournamentsById = async {
+                remote.select(
+                    "tournaments",
+                    mapOf("id" to "in.(${tournamentIds.joinToString(",")})"),
+                    Tournament.serializer(),
+                ).associateBy { it.id }
+            }
+            val matches = async {
+                remote.select(
+                    "matches",
+                    mapOf(
+                        "tournament_id" to "in.(${tournamentIds.joinToString(",")})",
+                        "order" to "scheduled_at.asc",
+                    ),
+                    Match.serializer(),
+                )
+            }
+            val tournaments = tournamentsById.await()
+            matches.await().mapNotNull { match ->
+                val registration = registrations.firstOrNull { it.tournamentId == match.tournamentId }
+                    ?: return@mapNotNull null
+                val tournament = tournaments[match.tournamentId] ?: return@mapNotNull null
+                MyMatch(match, tournament, registration)
+            }
         }
     }
 

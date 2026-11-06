@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -129,14 +131,19 @@ fun GlassScaffold(
     floatingActionButton: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val effectsEnabled = LocalHmxGlassEffects.current
+    val tier = LocalHmxGlassTier.current
+    val effectsEnabled = tier != HmxGlassTier.Disabled
+    val windowClass = LocalHmxWindowClass.current
+    val wide = windowClass != HmxWindowClass.Compact
     val rootBackdrop = LocalHmxBackdrop.current
     val canvasColor = hmxColorScheme().canvas
 
     // The content layer is only needed when a bottom bar must refract real
     // scrolling content. Recording it for every screen doubles the graphics
-    // work (and battery cost) with no visual benefit.
-    val contentBackdrop = if (effectsEnabled && bottomBar != null) {
+    // work (and battery cost) with no visual benefit. The reduced tier uses the
+    // root backdrop instead, removing a second full-window layer on low-end
+    // devices while keeping the chrome blur.
+    val contentBackdrop = if (effectsEnabled && tier == HmxGlassTier.Full && bottomBar != null) {
         rememberLayerBackdrop {
             drawRect(canvasColor)
             drawContent()
@@ -145,56 +152,130 @@ fun GlassScaffold(
         null
     }
 
-    Box(modifier.fillMaxSize()) {
-        // HmxGlassHost already paints this background. Only paint a local copy
-        // when GlassScaffold is used without the host (e.g. previews), so a
-        // normal screen never renders the decorative backdrop twice.
-        if (rootBackdrop == null) {
-            GlassScreenBackground()
-        }
-        Column(Modifier.fillMaxSize()) {
-            if (topBar != null) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = HmxDimens.screenPadding, vertical = HmxDimens.xs),
-                ) { topBar() }
-            }
-            Box(Modifier.weight(1f)) {
-                if (contentBackdrop != null) {
-                    Box(Modifier.fillMaxSize().layerBackdrop(contentBackdrop)) {
-                        GlassScreenBackground(force = true)
-                        content(PaddingValues(0.dp))
-                    }
-                } else {
-                    content(PaddingValues(0.dp))
-                }
+    val maxContentWidth = hmxContentMaxWidth(windowClass)
+    // On a tablet/foldable the bottom bar becomes a left navigation rail; the
+    // content column is inset by the rail width so nothing is covered.
+    val railInset = if (wide && bottomBar != null) HmxRailWidth else 0.dp
 
-                if (bottomBar != null) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            // HmxGlassHost already paints this background. Only paint a local
+            // copy when GlassScaffold is used without the host (e.g. previews),
+            // so a normal screen never renders the backdrop twice.
+            if (rootBackdrop == null) {
+                GlassScreenBackground()
+            }
+            Column(Modifier.fillMaxSize()) {
+                if (topBar != null) {
                     Box(
                         Modifier
-                            .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = HmxDimens.md, vertical = HmxDimens.xs),
+                            .statusBarsPadding()
+                            .padding(horizontal = HmxDimens.screenPadding, vertical = HmxDimens.xs),
                     ) {
-                        CompositionLocalProvider(
-                            LocalHmxBackdrop provides (contentBackdrop ?: rootBackdrop),
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = railInset),
+                            contentAlignment = Alignment.TopCenter,
                         ) {
-                            bottomBar()
+                            Box(
+                                Modifier
+                                    .then(
+                                        if (maxContentWidth == Dp.Unspecified) {
+                                            Modifier.fillMaxWidth()
+                                        } else {
+                                            Modifier.widthIn(max = maxContentWidth).fillMaxWidth()
+                                        },
+                                    ),
+                            ) { topBar() }
+                        }
+                    }
+                }
+                Box(Modifier.weight(1f)) {
+                    if (contentBackdrop != null) {
+                        Box(Modifier.fillMaxSize().layerBackdrop(contentBackdrop)) {
+                            GlassScreenBackground(force = true)
+                            AdaptiveContent(railInset = railInset, maxWidth = maxContentWidth, content = content)
+                        }
+                    } else {
+                        AdaptiveContent(railInset = railInset, maxWidth = maxContentWidth, content = content)
+                    }
+
+                    if (bottomBar != null) {
+                        if (wide) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.CenterStart)
+                                    .width(HmxRailWidth)
+                                    .fillMaxHeight(0.68f)
+                                    .navigationBarsPadding()
+                                    .padding(start = HmxDimens.sm, top = HmxDimens.xs, bottom = HmxDimens.xs),
+                            ) {
+                                CompositionLocalProvider(
+                                    LocalHmxBackdrop provides (contentBackdrop ?: rootBackdrop),
+                                ) {
+                                    bottomBar()
+                                }
+                            }
+                        } else {
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = HmxDimens.md, vertical = HmxDimens.xs),
+                            ) {
+                                CompositionLocalProvider(
+                                    LocalHmxBackdrop provides (contentBackdrop ?: rootBackdrop),
+                                ) {
+                                    bottomBar()
+                                }
+                            }
                         }
                     }
                 }
             }
+            if (floatingActionButton != null) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(20.dp),
+                ) { floatingActionButton() }
+            }
         }
-        if (floatingActionButton != null) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(20.dp),
-            ) { floatingActionButton() }
+    }
+}
+
+/**
+ * Applies the navigation-rail inset and the readable maximum content width.
+ * The full-size layer stays behind the content so the rail samples real
+ * background rather than an empty gutter.
+ */
+@Composable
+private fun AdaptiveContent(
+    railInset: Dp,
+    maxWidth: Dp,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(start = railInset),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Box(
+            Modifier
+                .then(
+                    if (maxWidth == Dp.Unspecified) {
+                        Modifier.fillMaxSize()
+                    } else {
+                        Modifier.widthIn(max = maxWidth).fillMaxSize()
+                    },
+                ),
+        ) {
+            content(PaddingValues(0.dp))
         }
     }
 }

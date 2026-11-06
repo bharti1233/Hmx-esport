@@ -42,8 +42,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxGlassLevel
+import com.hmx.arena.core.designsystem.HmxGlassTier
 import com.hmx.arena.core.designsystem.HmxLiquidGlassSurface
 import com.hmx.arena.core.designsystem.HmxShapes
+import com.hmx.arena.core.designsystem.LocalHmxGlassTier
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -69,68 +71,123 @@ fun HmxLiquidGlassBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }.coerceAtLeast(0)
+    val tier = LocalHmxGlassTier.current
 
-    HmxLiquidGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        shape = HmxShapes.pill,
-        level = HmxGlassLevel.Chrome,
-        fill = HmxColor.GlassChrome,
-        elevation = 20.dp,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
-    ) {
-        BoxWithConstraints(
-            Modifier
+    BoxWithConstraints(modifier) {
+        // The adaptive shell places this component in a 96dp-wide container on
+        // medium/expanded windows. Measuring the available width (rather than
+        // asking the caller) keeps a single navigation component for bottom bar
+        // and rail, so route state and semantics stay identical.
+        val vertical = maxWidth < 200.dp
+
+        HmxLiquidGlassSurface(
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp),
+                .then(if (vertical) Modifier.fillMaxHeight() else Modifier),
+            shape = HmxShapes.pill,
+            level = HmxGlassLevel.Chrome,
+            fill = HmxColor.GlassChrome,
+            elevation = 20.dp,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
         ) {
-            val tabWidth = maxWidth / tabs.size
-            val animatedIndex by animateFloatAsState(
-                targetValue = selectedIndex.toFloat(),
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                ),
-                label = "bottomBarSelection",
-            )
-
-            Box(
+            BoxWithConstraints(
                 Modifier
-                    .offset(x = tabWidth * animatedIndex)
-                    .width(tabWidth)
-                    .fillMaxHeight()
-                    .padding(horizontal = 3.dp, vertical = 2.dp)
-                    .clip(RoundedCornerShape(23.dp))
-                    .background(HmxColor.Ink),
-            )
+                    .fillMaxWidth()
+                    .then(if (vertical) Modifier.fillMaxHeight() else Modifier.height(58.dp)),
+            ) {
+                val animatedValue by animateFloatAsState(
+                    targetValue = selectedIndex.toFloat(),
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    label = "navigationSelection",
+                )
+                // Reduced tier snaps instead of animating a full-height rail.
+                val position = if (tier == HmxGlassTier.Full) animatedValue else selectedIndex.toFloat()
 
-            Row(Modifier.fillMaxSize()) {
-                tabs.forEachIndexed { index, tab ->
-                    val selected = index == selectedIndex
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .semantics {
-                                this.selected = selected
-                                contentDescription = tab.label
+                if (vertical) {
+                    val tabHeight = maxHeight / tabs.size
+                    Box(
+                        Modifier
+                            .offset(y = tabHeight * position)
+                            .height(tabHeight)
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp, horizontal = 2.dp)
+                            .clip(RoundedCornerShape(23.dp))
+                            .background(HmxColor.Ink),
+                    )
+                    Column(Modifier.fillMaxSize()) {
+                        tabs.forEachIndexed { index, tab ->
+                            val selected = index == selectedIndex
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .semantics {
+                                        this.selected = selected
+                                        contentDescription = tab.label
+                                    }
+                                    .clickable(role = Role.Tab) { onSelect(tab.route) },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                            ) {
+                                Icon(
+                                    tab.icon,
+                                    contentDescription = null,
+                                    tint = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    tab.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                                )
                             }
-                            .clickable(role = Role.Tab) { onSelect(tab.route) },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Spacer(Modifier.weight(1f))
-                        Icon(
-                            tab.icon,
-                            contentDescription = null,
-                            tint = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            tab.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
-                        )
-                        Spacer(Modifier.weight(1f))
+                        }
+                    }
+                } else {
+                    val tabWidth = maxWidth / tabs.size
+                    Box(
+                        Modifier
+                            .offset(x = tabWidth * position)
+                            .width(tabWidth)
+                            .fillMaxHeight()
+                            .padding(horizontal = 3.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(23.dp))
+                            .background(HmxColor.Ink),
+                    )
+                    Row(Modifier.fillMaxSize()) {
+                        tabs.forEachIndexed { index, tab ->
+                            val selected = index == selectedIndex
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .semantics {
+                                        this.selected = selected
+                                        contentDescription = tab.label
+                                    }
+                                    .clickable(role = Role.Tab) { onSelect(tab.route) },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Spacer(Modifier.weight(1f))
+                                Icon(
+                                    tab.icon,
+                                    contentDescription = null,
+                                    tint = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    tab.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selected) HmxColor.OnInk else HmxColor.InkSecondary,
+                                )
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
             }

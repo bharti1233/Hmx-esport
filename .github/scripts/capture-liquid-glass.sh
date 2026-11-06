@@ -230,41 +230,65 @@ timeout 15 adb shell input keyevent 111 || true
 sleep 2
 clear_anr_dialog || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/17-arena-light-search.png || true
-tap_node "Switch theme" || true
-sleep 12
-clear_anr_dialog || true
+
+# Tapping the icon toggles the live theme in place. Software rendering can
+# deliver the tap before the previous frame settles, so verify the accessibility
+# state and retry the tap instead of assuming one tap always landed.
+dump_theme_state() {
+  clear_anr_dialog || true
+  timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+  timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-switch.xml > /dev/null 2>&1 || true
+}
+
+tap_theme_until() {
+  local expected="$1"
+  local attempt=1
+  while [ "$attempt" -le 3 ]; do
+    tap_node "Switch theme" || true
+    sleep 10
+    dump_theme_state
+    if grep -q "currently $expected" artifacts/ui-after-switch.xml 2>/dev/null; then
+      echo "Theme switch check: $expected appearance active on the same Arena screen"
+      return 0
+    fi
+    echo "Theme switch check: $expected not active (attempt $attempt)" >&2
+    attempt=$((attempt + 1))
+  done
+  echo "Theme switch check: could not confirm $expected appearance" >&2
+  return 1
+}
+
+tap_theme_until dark || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/18-arena-switched-dark.png || true
 timeout 25 adb shell dumpsys activity top > artifacts/activity-after-dark.txt || true
-timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-dark.xml > /dev/null 2>&1 || true
-if grep -q "currently dark" artifacts/ui-after-dark.xml 2>/dev/null; then
-  echo "Theme switch check: dark appearance active on the same Arena screen"
-else
-  echo "Theme switch check: could not confirm dark appearance in the UI dump" >&2
-fi
-tap_node "Switch theme" || true
-sleep 12
-clear_anr_dialog || true
+
+tap_theme_until light || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/19-arena-switched-light.png || true
 timeout 25 adb shell dumpsys activity top > artifacts/activity-after-light.txt || true
-timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
-timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-light.xml > /dev/null 2>&1 || true
-if grep -q "currently light" artifacts/ui-after-light.xml 2>/dev/null; then
-  echo "Theme switch check: light appearance active on the same Arena screen"
-else
-  echo "Theme switch check: could not confirm light appearance in the UI dump" >&2
-fi
-if grep -qi "weekend" artifacts/ui-after-light.xml 2>/dev/null; then
+if grep -qi "weekend" artifacts/ui-after-switch.xml 2>/dev/null; then
   echo "Theme switch check: typed search text survived the switch"
 fi
 
 # --- Persistence across process death --------------------------------------
 echo "=== theme persistence ==="
-# Capture 19 is Light. Switch to Dark, let DataStore write, then kill the
-# process and start without a `theme` extra. The screenshot must be taken after
-# that restart: capturing the previous process would prove nothing.
-tap_node "Switch theme" || true
-sleep 6
+# Persistence is proven with an explicit choice, not a toggle count: open
+# Settings in Light, tap the "Dark" segment (its content description is exactly
+# "Dark"), let DataStore commit, then kill the process and relaunch without a
+# `theme` extra. The expected "Dark glass" label can only come from disk.
+timeout 20 adb shell am force-stop com.hmx.arena.debug || true
+sleep 2
+start_screen settings light
+wait_for_app_frame 19b-settings-light-before-persistence.png || true
+sleep 10
+tap_node "Dark" || true
+sleep 8
+dump_theme_state
+if grep -q "Dark glass" artifacts/ui-after-switch.xml 2>/dev/null; then
+  echo "Persistence check: Dark selected in Settings before process death"
+else
+  echo "Persistence check: could not select Dark in Settings before process death" >&2
+fi
+
 timeout 20 adb shell am force-stop com.hmx.arena.debug || true
 sleep 2
 timeout 45 adb shell am start -W \

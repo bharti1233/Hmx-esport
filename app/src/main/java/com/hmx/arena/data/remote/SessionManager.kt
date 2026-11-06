@@ -27,7 +27,6 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,7 +49,6 @@ class SessionManager @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val refreshLock = Any()
-    private val refreshing = AtomicBoolean(false)
     private val bareClient by lazy { Http.bareClient() }
 
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
@@ -74,14 +72,27 @@ class SessionManager @Inject constructor(
 
     suspend fun bootstrap() {
         val prefs = context.sessionDataStore.data.first()
-        accessToken = prefs[Keys.access]
+        // Older builds persisted the short-lived access token. It is now
+        // memory-only: the refresh token is enough to mint a fresh one, and a
+        // stolen DataStore backup cannot be replayed as a live session token.
+        val legacyAccessToken = prefs[Keys.access]
         refreshToken = prefs[Keys.refresh]
         userId = prefs[Keys.user]
         email = prefs[Keys.email]
-        expiresAtMillis = prefs[Keys.expires] ?: 0L
+        expiresAtMillis = 0L
+        accessToken = null
         onboardingCompleted = prefs[Keys.onboarding] ?: false
+        if (legacyAccessToken != null) {
+            runCatching { context.sessionDataStore.edit { it.remove(Keys.access) } }
+        }
         val uid = userId
-        _state.value = if (uid.isNullOrBlank()) SessionState.SignedOut else SessionState.SignedIn(uid, email)
+        _state.value = if (!uid.isNullOrBlank() && !refreshToken.isNullOrBlank()) {
+            SessionState.SignedIn(uid, email)
+        } else {
+            userId = null
+            email = null
+            SessionState.SignedOut
+        }
     }
 
     fun snapshotUserId(): String? = userId
@@ -104,6 +115,18 @@ class SessionManager @Inject constructor(
     }
 
     fun accessToken(): String? = accessToken
+
+    fun hasRefreshToken(): Boolean = !refreshToken.isNullOrBlank()
+
+    /**
+     * Returns the in-memory access token only while it is still valid. Network
+     * callers use this so an expired token is refreshed on the OkHttp thread
+     * instead of sending a request that is guaranteed to fail with 401.
+     */
+    fun validAccessToken(): String? {
+        val token = accessToken ?: return null
+        return if (System.currentTimeMillis() < expiresAtMillis - 60_000L) token else null
+    }
 
     fun save(session: AuthSession) {
         accessToken = session.accessToken
@@ -146,7 +169,8 @@ class SessionManager @Inject constructor(
 
     private suspend fun persist() {
         context.sessionDataStore.edit { prefs ->
-            accessToken?.let { prefs[Keys.access] = it } ?: prefs.remove(Keys.access)
+            // The access token is intentionally never written to disk.
+            prefs.remove(Keys.access)
             refreshToken?.let { prefs[Keys.refresh] = it } ?: prefs.remove(Keys.refresh)
             userId?.let { prefs[Keys.user] = it } ?: prefs.remove(Keys.user)
             email?.let { prefs[Keys.email] = it } ?: prefs.remove(Keys.email)
@@ -158,18 +182,19 @@ class SessionManager @Inject constructor(
         accessToken == null || System.currentTimeMillis() > expiresAtMillis - 60_000L
 
     /**
-     * Synchronous refresh used from the OkHttp Authenticator thread.
-     * Returns the new access token, or null when the session is unrecoverable.
+     * Synchronous refresh used from the OkHttp interceptor/authenticator
+     * threads. Returns the new access token, or null when the session is
+     * unrecoverable.
+     *
+     * The whole operation is serialised on [refreshLock]. Earlier versions set
+     * an AtomicBoolean and then made waiters synchronise on a lock the
+     * refreshing thread never held, so concurrent callers could observe a null
+     * token while the refresh was still running.
      */
-    fun refreshBlocking(): String? {
-        if (!refreshing.compareAndSet(false, true)) {
-            // Another thread is refreshing; wait for it.
-            synchronized(refreshLock) {
-                return if (isExpired()) null else accessToken
-            }
-        }
-        try {
-            val token = refreshToken ?: return null
+    fun refreshBlocking(): String? = synchronized(refreshLock) {
+        validAccessToken()?.let { return it }
+        val token = refreshToken ?: return null
+        return try {
             val body = buildJsonObject { put("refresh_token", token) }
                 .toString()
                 .toRequestBody("application/json".toMediaType())
@@ -183,7 +208,12 @@ class SessionManager @Inject constructor(
             bareClient.newCall(request).execute().use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    clear()
+                    // A rejected refresh token is unrecoverable; a transient
+                    // 5xx/429 must not sign the player out. Keep the refresh
+                    // token and let the next request try again.
+                    if (response.code == 400 || response.code == 401) {
+                        clear()
+                    }
                     return null
                 }
                 val element = runCatching { json.parseToJsonElement(text) }.getOrNull()
@@ -199,12 +229,12 @@ class SessionManager @Inject constructor(
                     user["email"]?.jsonPrimitive?.contentOrNull?.let { email = it }
                 }
                 scope.launch { persist() }
-                return newAccess
+                newAccess
             }
         } catch (_: Exception) {
-            return null
-        } finally {
-            refreshing.set(false)
+            // Network failure/timeout: keep the session and let the caller
+            // decide whether to surface a retryable error.
+            null
         }
     }
 }

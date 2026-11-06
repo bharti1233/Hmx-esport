@@ -111,14 +111,26 @@ class AuthRepository @Inject constructor(
         session.clear()
     }
 
-    /** Restores the session from a supabase recovery deep link fragment. */
-    fun restoreFromRecovery(accessToken: String, refreshToken: String): Boolean {
+    /**
+     * Restores the session from a Supabase recovery deep link fragment.
+     *
+     * The tokens in a URL are attacker-controllable, so the access token is
+     * verified against /auth/v1/user before it is saved. This also fills in the
+     * user id/email, which the previous implementation left null and which
+     * caused the session to keep a stale user id from a different account.
+     */
+    suspend fun restoreFromRecovery(accessToken: String, refreshToken: String): Boolean {
         if (accessToken.isBlank() || refreshToken.isBlank()) return false
+        val response = runCatching { authApi.me("Bearer $accessToken") }.getOrNull() ?: return false
+        val user = response.asObjectOrNull() ?: return false
+        val id = user["id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return false
+        val mail = user["email"]?.jsonPrimitive?.contentOrNull
         session.save(
             com.hmx.arena.core.model.AuthSession(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
                 expiresIn = 3600,
+                user = com.hmx.arena.core.model.AuthUser(id = id, email = mail),
             ),
         )
         return true

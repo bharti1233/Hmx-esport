@@ -33,12 +33,15 @@ object NetworkModule {
     fun provideOkHttp(session: SessionManager): OkHttpClient {
         val authenticator = Authenticator { _: Route?, response: Response ->
             val request = response.request
-            if (request.header("Authorization") == null) return@Authenticator null
+            if (response.code != 401) return@Authenticator null
             if (responseCount(response) >= 2) return@Authenticator null
             val path = request.url.encodedPath
             if (path.contains("/auth/v1/token") || path.contains("/auth/v1/signup")) {
                 return@Authenticator null
             }
+            // A 401 can arrive when the in-memory access token was never
+            // restored (it is no longer persisted). Refresh whenever we hold a
+            // refresh token, even if this request carried no Authorization.
             val token = session.refreshBlocking() ?: return@Authenticator null
             request.newBuilder()
                 .header("Authorization", "Bearer $token")
@@ -53,9 +56,18 @@ object NetworkModule {
                 val builder = chain.request().newBuilder()
                     .header("apikey", SupabaseConfig.key)
                     .header("Accept", "application/json")
-                val token = session.accessToken()
-                if (!token.isNullOrBlank() && chain.request().header("Authorization") == null) {
-                    builder.header("Authorization", "Bearer $token")
+                if (chain.request().header("Authorization") == null) {
+                    val path = chain.request().url.encodedPath
+                    val authEndpoint = path.contains("/auth/v1/token") ||
+                        path.contains("/auth/v1/signup") ||
+                        path.contains("/auth/v1/verify") ||
+                        path.contains("/auth/v1/recover") ||
+                        path.contains("/auth/v1/resend")
+                    val token = session.validAccessToken()
+                        ?: if (!authEndpoint && session.hasRefreshToken()) session.refreshBlocking() else null
+                    if (!token.isNullOrBlank()) {
+                        builder.header("Authorization", "Bearer $token")
+                    }
                 }
                 chain.proceed(builder.build())
             }

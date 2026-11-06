@@ -59,7 +59,9 @@ interface AuthApi {
     suspend fun logout(): retrofit2.Response<Unit>
 
     @GET("auth/v1/user")
-    suspend fun me(): kotlinx.serialization.json.JsonElement
+    suspend fun me(
+        @Header("Authorization") authorization: String? = null,
+    ): kotlinx.serialization.json.JsonElement
 
     @PUT("auth/v1/user")
     suspend fun updateUser(@Body body: kotlinx.serialization.json.JsonObject): kotlinx.serialization.json.JsonElement

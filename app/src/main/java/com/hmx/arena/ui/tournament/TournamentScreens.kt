@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -59,6 +63,8 @@ import com.hmx.arena.core.designsystem.GlassSurface
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
+import com.hmx.arena.core.designsystem.LocalHmxWindowClass
+import com.hmx.arena.core.designsystem.hmxGridColumns
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.Participant
 import com.hmx.arena.core.model.Registration
@@ -168,12 +174,15 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
         },
         bottomBar = { HmxGlassBottomBar(Routes.TOURNAMENTS) { nav.openTab(it) } },
     ) {
-        LazyColumn(
-            Modifier.fillMaxSize(),
+        val columns = hmxGridColumns(LocalHmxWindowClass.current)
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 124.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 GlassTextField(
                     value = ui.query,
                     onValueChange = viewModel::setQuery,
@@ -184,7 +193,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                     onImeAction = viewModel::load,
                 )
             }
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item { GlassChip("All modes", ui.mode == null) { viewModel.setMode(null) } }
                     item { GlassChip("Solo", ui.mode == "solo") { viewModel.setMode("solo") } }
@@ -194,7 +203,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                     item { GlassChip("Free entry", ui.freeOnly) { viewModel.toggleFree() } }
                 }
             }
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "${ui.items.size} tournaments",
@@ -214,13 +223,15 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                 }
             }
             if (ui.error != null && ui.items.isEmpty()) {
-                item { InlineError(ui.error!!, onRetry = viewModel::load) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    InlineError(ui.error!!, onRetry = viewModel::load)
+                }
             }
             if (ui.loading && ui.items.isEmpty()) {
-                item { LoadingBlock("Loading tournaments") }
+                item(span = { GridItemSpan(maxLineSpan) }) { LoadingBlock("Loading tournaments") }
             }
             if (!ui.loading && ui.items.isEmpty() && ui.error == null) {
-                item {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyBlock(
                         title = "No tournaments match",
                         message = "Try clearing a filter or searching a shorter word.",
@@ -235,7 +246,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                     )
                 }
             }
-            items(ui.items, key = { it.id }) { tournament ->
+            gridItems(ui.items, key = { it.id }) { tournament ->
                 TournamentCard(tournament) { nav.navigate(Routes.tournament(tournament.id)) }
             }
         }

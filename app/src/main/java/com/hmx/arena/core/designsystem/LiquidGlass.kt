@@ -67,9 +67,14 @@ fun Modifier.hmxLiquidGlass(
     val tokens = scheme.glass
     val effects = scheme.effects
     val backdrop = LocalHmxBackdrop.current
-    val effectsEnabled = LocalHmxGlassEffects.current
+    val tier = LocalHmxGlassTier.current
 
-    if (backdrop == null || !effectsEnabled) {
+    // Disabled: API < 31. Reduced: budget GPU/RAM. On the reduced tier only
+    // chrome keeps a (smaller) blur; cards and controls use the identical
+    // gradient fallback so scrolling and lists never pay for a RenderEffect.
+    if (backdrop == null || tier == HmxGlassTier.Disabled ||
+        (tier == HmxGlassTier.Reduced && level != HmxGlassLevel.Chrome)
+    ) {
         return hmxGlassFallback(
             shape = shape,
             fill = fill,
@@ -80,6 +85,7 @@ fun Modifier.hmxLiquidGlass(
         )
     }
 
+    val reduced = tier == HmxGlassTier.Reduced
     val chrome = level == HmxGlassLevel.Chrome
     val control = level == HmxGlassLevel.Control
     val fullEdge = edge == HmxGlassEdge.Full
@@ -118,12 +124,17 @@ fun Modifier.hmxLiquidGlass(
                 vibrancy()
                 when {
                     chrome -> {
-                        blur(radius = effects.chromeBlurRadius.toPx())
-                        lens(
-                            refractionHeight = effects.chromeLensHeight.toPx(),
-                            refractionAmount = effects.chromeLensAmount.toPx(),
-                            depthEffect = true,
+                        blur(
+                            radius = effects.chromeBlurRadius.toPx() *
+                                if (reduced) 0.6f else 1f,
                         )
+                        if (!reduced) {
+                            lens(
+                                refractionHeight = effects.chromeLensHeight.toPx(),
+                                refractionAmount = effects.chromeLensAmount.toPx(),
+                                depthEffect = true,
+                            )
+                        }
                     }
                     control -> {
                         blur(radius = effects.controlBlurRadius.toPx())

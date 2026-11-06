@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -43,6 +44,19 @@ val LocalHmxBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 val LocalHmxGlassEffects = staticCompositionLocalOf { false }
 
 /**
+ * How much of the real glass pipeline may run.
+ *
+ * [Full] enables backdrop, vibrancy, blur and lens on every glass level.
+ * [Reduced] keeps the Liquid Glass identity (tint, sheen, edge, chrome blur)
+ * but drops per-card/per-control RenderEffects and the second recorded layer,
+ * which is the dominant GPU cost on lower-memory devices.
+ * [Disabled] is the API < 31 path: translucent gradients only.
+ */
+enum class HmxGlassTier { Full, Reduced, Disabled }
+
+val LocalHmxGlassTier = staticCompositionLocalOf { HmxGlassTier.Disabled }
+
+/**
  * Root glass host.
  *
  * It records one full-screen decorative layer. Chrome, cards, sheets and
@@ -58,30 +72,48 @@ fun HmxGlassHost(
 ) {
     val context = LocalContext.current
     val scheme = hmxColorScheme()
-    val effectsEnabled = remember(context) { liquidGlassSupported(context) }
+    val tier = remember(context) { liquidGlassTier(context) }
+    val effectsEnabled = tier != HmxGlassTier.Disabled
     val canvasColor = scheme.canvas
     val backdrop = rememberLayerBackdrop {
         drawRect(canvasColor)
         drawContent()
     }
 
-    Box(modifier.fillMaxSize().background(canvasColor)) {
-        Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-            background()
-        }
+    BoxWithConstraints(modifier.fillMaxSize().background(canvasColor)) {
+        val windowClass = hmxWindowClassForWidth(maxWidth)
         CompositionLocalProvider(
-            LocalHmxBackdrop provides backdrop,
             LocalHmxGlassEffects provides effectsEnabled,
+            LocalHmxGlassTier provides tier,
+            LocalHmxWindowClass provides windowClass,
         ) {
-            content()
+            // The decorative background must see the same tier as the content;
+            // otherwise the low-end branch is always used because the default
+            // CompositionLocal value is Disabled.
+            Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
+                background()
+            }
+            CompositionLocalProvider(LocalHmxBackdrop provides backdrop) {
+                content()
+            }
         }
     }
 }
 
-fun liquidGlassSupported(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+fun liquidGlassSupported(context: Context): Boolean =
+    liquidGlassTier(context) != HmxGlassTier.Disabled
+
+/**
+ * The OS/device capability tier. `isLowRamDevice` is the authoritative low-end
+ * signal; the memory-class check catches budget devices that do not set it.
+ * No device model names are used.
+ */
+fun liquidGlassTier(context: Context): HmxGlassTier {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return HmxGlassTier.Disabled
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-    return activityManager?.isLowRamDevice != true
+        ?: return HmxGlassTier.Disabled
+    if (activityManager.isLowRamDevice) return HmxGlassTier.Reduced
+    return if (activityManager.memoryClass <= 256) HmxGlassTier.Reduced else HmxGlassTier.Full
 }
 
 /**
@@ -95,6 +127,7 @@ fun liquidGlassSupported(context: Context): Boolean {
 @Composable
 fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
     val scheme = hmxColorScheme()
+    val reduced = LocalHmxGlassTier.current != HmxGlassTier.Full
     // Dark bloom is deliberately weak: a large white radial on near-black
     // reads as a grey patch behind cards.
     val bloomAlpha = if (scheme.isDark) 0.035f else 0.45f
@@ -122,29 +155,32 @@ fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
                 center = Offset(w * 0.88f, h * 0.05f),
             )
 
-            // Diffuse neutral mass, deliberately weak so it never turns into a
-            // grey slab crossing headings or cards.
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(scheme.backdropCloud, scheme.backdropCloudSoft),
-                    center = Offset(w * 0.02f, h * 0.80f),
+            if (!reduced) {
+                // Diffuse neutral mass, deliberately weak so it never turns
+                // into a grey slab crossing headings or cards.
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(scheme.backdropCloud, scheme.backdropCloudSoft),
+                        center = Offset(w * 0.02f, h * 0.80f),
+                        radius = w * 0.72f,
+                    ),
                     radius = w * 0.72f,
-                ),
-                radius = w * 0.72f,
-                center = Offset(w * 0.02f, h * 0.80f),
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(scheme.backdropMid, scheme.backdropMid.copy(alpha = 0f)),
-                    center = Offset(w * 0.34f, h * 0.34f),
+                    center = Offset(w * 0.02f, h * 0.80f),
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(scheme.backdropMid, scheme.backdropMid.copy(alpha = 0f)),
+                        center = Offset(w * 0.34f, h * 0.34f),
+                        radius = w * 0.56f,
+                    ),
                     radius = w * 0.56f,
-                ),
-                radius = w * 0.56f,
-                center = Offset(w * 0.34f, h * 0.34f),
-            )
+                    center = Offset(w * 0.34f, h * 0.34f),
+                )
+            }
 
-            // Two wide, low-contrast arcs give the lens shader a long edge to
-            // bend. They stay far below text contrast in both themes.
+            // One wide, low-contrast arc gives the lens shader a long edge to
+            // bend without competing with text. The reduced tier still keeps
+            // one arc so chrome blur has something to refract.
             drawArc(
                 color = scheme.backdropArc,
                 startAngle = 198f,
@@ -154,29 +190,33 @@ fun HmxLiquidBackdrop(modifier: Modifier = Modifier) {
                 size = androidx.compose.ui.geometry.Size(w * 1.45f, w * 1.45f),
                 style = Stroke(width = 34.dp.toPx(), cap = StrokeCap.Round),
             )
-            drawArc(
-                color = scheme.backdropArcSoft,
-                startAngle = 18f,
-                sweepAngle = 92f,
-                useCenter = false,
-                topLeft = Offset(w * 0.22f, -h * 0.12f),
-                size = androidx.compose.ui.geometry.Size(w * 1.02f, w * 1.02f),
-                style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round),
-            )
+            if (!reduced) {
+                drawArc(
+                    color = scheme.backdropArcSoft,
+                    startAngle = 18f,
+                    sweepAngle = 92f,
+                    useCenter = false,
+                    topLeft = Offset(w * 0.22f, -h * 0.12f),
+                    size = androidx.compose.ui.geometry.Size(w * 1.02f, w * 1.02f),
+                    style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round),
+                )
+            }
         }
 
-        // A small, low-contrast wordmark. It sits in the top corner at 4%
-        // opacity so it reads as texture, never as a heading.
-        Text(
-            text = "HMX",
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 86.dp, end = 16.dp)
-                .rotate(-9f),
-            color = watermark,
-            fontSize = 84.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-5).sp,
-        )
+        if (!reduced) {
+            // A small, low-contrast wordmark. It sits in the top corner at 4%
+            // opacity so it reads as texture, never as a heading.
+            Text(
+                text = "HMX",
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 86.dp, end = 16.dp)
+                    .rotate(-9f),
+                color = watermark,
+                fontSize = 84.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-5).sp,
+            )
+        }
     }
 }
