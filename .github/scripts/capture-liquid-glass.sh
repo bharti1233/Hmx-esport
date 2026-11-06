@@ -50,6 +50,10 @@ capture_screen() {
   echo "=== capture $file (screen=$screen theme=$theme) ==="
   local attempt=1
   while [ "$attempt" -le 2 ]; do
+    # A system ANR dialog (typically the Pixel Launcher on a slow SwiftShader
+    # boot) sits above every window and would be captured in the screenshot,
+    # even though HMX itself is healthy. Clear it before launching.
+    clear_anr_dialog || true
     # Must be a real cold start: delivering the intent to an already running
     # top instance goes through onNewIntent (which the harness does not
     # handle), so the requested screen/theme extras would be ignored and every
@@ -66,8 +70,12 @@ capture_screen() {
         echo "Process died during settle for $file" >&2
       else
         timeout 25 adb shell dumpsys window > "artifacts/window-$file.txt" || true
-        if grep -qi "isn.t responding\|Application Not Responding" "artifacts/window-$file.txt"; then
-          echo "ANR dialog still visible for $file" >&2
+        # Only a *focused* ANR dialog blocks the capture. `dumpsys window`
+        # also keeps a "last ANR" section from earlier in the run, so a plain
+        # grep would false-positive forever.
+        if grep -Eqi "mCurrentFocus=.*(Application Not Responding|isn.t responding)" "artifacts/window-$file.txt"; then
+          echo "ANR dialog still focused for $file" >&2
+          clear_anr_dialog || true
         else
           timeout 30 adb exec-out screencap -p > "artifacts/screenshots/$file" || true
           timeout 25 adb shell dumpsys activity top > "artifacts/activity-$file.txt" || true
@@ -87,8 +95,36 @@ capture_screen() {
   return 1
 }
 
+# Close a system ANR dialog that belongs to another process (the launcher on a
+# slow emulator boot). For HMX's own dialog, tap "Wait" so the app can finish
+# its first frame instead of being killed. Expects artifacts/ui-last.xml to be
+# the current dump. Safe to call when no dialog is present.
+dismiss_anr_dialog() {
+  if ! grep -qi "isn.t responding\|Application Not Responding" artifacts/ui-last.xml 2>/dev/null; then
+    return 0
+  fi
+  local button="Close app"
+  if grep -qi "HMX Arena isn.t responding" artifacts/ui-last.xml 2>/dev/null; then
+    button="Wait"
+  fi
+  echo "ANR dialog detected ($(grep -o 'text="[^"]*isn.t responding[^"]*"' artifacts/ui-last.xml | head -1)); tapping $button" >&2
+  local coords
+  coords="$(node_bounds "$button" || true)"
+  if [ -n "$coords" ]; then
+    timeout 10 adb shell input tap $coords || true
+  fi
+  sleep 3
+}
+
+clear_anr_dialog() {
+  rm -f artifacts/ui-last.xml
+  timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+  timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
+  dismiss_anr_dialog || true
+}
+
 # Wait until the app window is actually in the accessibility tree. If Android
-# shows an ANR dialog, press "Wait" and keep polling. Returns non-zero when the
+# shows an ANR dialog, dismiss it and keep polling. Returns non-zero when the
 # process died or the deadline passed. Every adb call is bounded: uiautomator
 # can otherwise block for minutes while SwiftShader renders the first frame.
 wait_for_app_frame() {
@@ -104,13 +140,7 @@ wait_for_app_frame() {
     timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
     timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
     if grep -qi "isn.t responding\|Application Not Responding" artifacts/ui-last.xml 2>/dev/null; then
-      echo "ANR dialog detected while waiting for $label; tapping Wait"
-      local coords
-      coords="$(node_bounds "Wait" || true)"
-      if [ -n "$coords" ]; then
-        timeout 10 adb shell input tap $coords || true
-      fi
-      sleep 3
+      dismiss_anr_dialog || true
       continue
     fi
     if grep -q 'package="com.hmx.arena.debug"' artifacts/ui-last.xml 2>/dev/null; then
@@ -150,6 +180,8 @@ PY
 
 tap_node() {
   local needle="$1"
+  # A leftover system ANR dialog would hide the target node from uiautomator.
+  clear_anr_dialog || true
   local coords
   coords="$(node_bounds "$needle")"
   if [ -z "$coords" ]; then
@@ -196,18 +228,28 @@ timeout 15 adb shell input text "weekend" || true
 sleep 1
 timeout 15 adb shell input keyevent 111 || true
 sleep 2
+clear_anr_dialog || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/17-arena-light-search.png || true
 tap_node "Switch theme" || true
 sleep 12
+clear_anr_dialog || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/18-arena-switched-dark.png || true
 timeout 25 adb shell dumpsys activity top > artifacts/activity-after-dark.txt || true
+timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-dark.xml > /dev/null 2>&1 || true
+if grep -q "currently dark" artifacts/ui-after-dark.xml 2>/dev/null; then
+  echo "Theme switch check: dark appearance active on the same Arena screen"
+else
+  echo "Theme switch check: could not confirm dark appearance in the UI dump" >&2
+fi
 tap_node "Switch theme" || true
 sleep 12
+clear_anr_dialog || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/19-arena-switched-light.png || true
 timeout 25 adb shell dumpsys activity top > artifacts/activity-after-light.txt || true
 timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
 timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-after-light.xml > /dev/null 2>&1 || true
-if grep -q "Light glass" artifacts/ui-after-light.xml 2>/dev/null; then
+if grep -q "currently light" artifacts/ui-after-light.xml 2>/dev/null; then
   echo "Theme switch check: light appearance active on the same Arena screen"
 else
   echo "Theme switch check: could not confirm light appearance in the UI dump" >&2
@@ -230,6 +272,7 @@ timeout 45 adb shell am start -W \
   --es screen settings 2>&1 | tee artifacts/am-start-persistence.txt || true
 wait_for_app_frame 20-persistence-dark.png || true
 sleep 12
+clear_anr_dialog || true
 timeout 30 adb exec-out screencap -p > artifacts/screenshots/20-persistence-dark.png || true
 timeout 25 adb shell dumpsys activity top > artifacts/activity-persistence.txt || true
 timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true

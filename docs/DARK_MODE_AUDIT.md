@@ -73,9 +73,9 @@ The actual sources, in order of visual impact:
 | `glass.sheenAlpha` / chrome | 5 % / 9 % | Restrained reflection |
 | `glass.highlightAlpha` / chrome | 25 % / 45 % | Edge highlight |
 | `backdropBloom` | `#C1C5CE` at 3.5 % | Faint neutral light source |
-| `backdropCloud` | 6 % `#C9C9D2` | Diffuse mass |
-| `backdropMid` | 4 % | Mid glow |
-| `backdropArc` / soft / ring | 6 % / 3 % / 4 % | Detail for the lens |
+| `backdropCloud` | 3.9 % `#C9C9D2` | Diffuse mass |
+| `backdropMid` | 2.7 % | Mid glow |
+| `backdropArc` / soft / ring | 2.4 % / 1.6 % / 2 % | Detail for the lens |
 | `watermark` | 4 % white | “HMX” texture |
 | `pressedOverlay` | 11 % white | Press feedback |
 | `shadow` | 40 % black | Depth |

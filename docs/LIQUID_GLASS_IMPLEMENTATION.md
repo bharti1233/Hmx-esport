@@ -56,6 +56,7 @@ fun Modifier.hmxLiquidGlass(
     level: HmxGlassLevel = HmxGlassLevel.Card,
     fill: Color = HmxColor.Glass,
     elevation: Dp = 10.dp,
+    edge: HmxGlassEdge = HmxGlassEdge.Full,
 ): Modifier
 ```
 
@@ -72,6 +73,21 @@ On capable devices (`Build.VERSION.SDK_INT >= 31` and not
 
 Highlight, shadow and surface are drawn from the active `HmxGlassTokens`, so
 Light and Dark produce different physics from the same component tree.
+
+### 3.1 Edge mode
+
+`HmxGlassEdge` controls how the specular outline is drawn:
+
+| Mode | Behaviour | Used by |
+|---|---|---|
+| `Full` (default) | Closed Backdrop `Highlight.Default`, outer `Shadow`, and (Chrome) `InnerShadow` | Floating cards, sheets, dialogs, buttons |
+| `Top` | No Backdrop highlight/shadow/inner shadow; a vertical-gradient outline that is strong at the top lip and transparent at the bottom | Shared top bar, circular brand mark |
+
+`Top` exists because the closed contour plus the 22 dp chrome drop shadow drew a
+bright 1 px line and a grey band along the bottom of the full-width header. The
+fallback path mirrors the same rule and also drops the drop shadow. Blur, lens,
+vibrancy, fill gradient and the top sheen are unchanged — it is still real
+glass, just without a hard bottom contour. See `TOP_HEADER_FIX_REPORT.md`.
 
 ## 4. Effect budget
 
@@ -129,6 +145,23 @@ aliases matching the brief:
 | `HmxGlassErrorState` | `HmxLiquidGlassErrorState` | Card |
 
 All are theme-aware by construction; none accepts a hard-coded colour.
+
+### 6.1 Shared header brand mark
+
+`GlassTopBar` (and therefore `HmxPage`) accepts an optional `leading` slot.
+Home passes `HmxBrandMark()`: the existing `res/drawable/ic_hmx_mark.xml`
+(plus `drawable-night` variant) tinted with `HmxColor.Ink`, inside a 36 dp
+circular `Control` glass disc with a `HmxGlassEdge.Top` edge and a 1 dp
+`HmxColor.HairlineStrong` ring for light-theme legibility. It replaces the
+title-only start of the row; the notification button, unread badge and click
+target on the right are unchanged, and the 56 dp header height is unchanged.
+
+### 6.2 Chip sizing
+
+`GlassChip` sizes to its label (`maxLines = 1`, `softWrap = false`). It must not
+use `fillMaxSize()` internally: a chip inside a `Row` would then consume the
+remaining width and squeeze neighbouring text (this broke the Settings
+appearance preview).
 
 ## 7. Application coverage
 

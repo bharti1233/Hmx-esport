@@ -47,10 +47,10 @@ its own theme implementation.
 | # | Issue | Location | Root cause | Fix |
 |---|---|---|---|---|
 | D1 | White wash at the top of every dark card | `LiquidGlass.kt` `onDrawSurface`, `hmxGlassFallback` | The vertical gradient used `tokens.sheenColor` (pure white) as its first colour, not the surface fill | Gradient now starts from `fill`; sheen is a separate 5 % top lip |
-| D2 | Grey patch behind dark cards | `Theme.kt` dark `backdropBloom` | 100 % white radial drawn at 10 % alpha over near-black | Bloom is now `#C1C5CE` at 3.5 %, cloud/mid/arc alphas roughly halved |
+| D2 | Grey patch behind dark cards | `Theme.kt` dark `backdropBloom` | 100 % white radial drawn at 10 % alpha over near-black | Bloom `#C1C5CE` at 3.5 %; cloud 3.9 %, mid 2.7 %, arcs 1.6–2.4 % |
 | D3 | Bright card edges / “plastic” outline | `Theme.kt` dark `glass.edge` | 36 % white border and 80 % chrome highlight | Edge 20 %, highlight 25 %, chrome highlight 45 % |
 | D4 | White base in fallback glass | `LiquidGlass.kt` fallback gradient + border | Fallback used the sheen colour and a hard-coded 50 % border, ignoring the token alpha | Fallback uses `fill` and `tokens.edge.alpha * 0.8` |
-| D5 | Watermark and decorative arcs visible as grey shapes | `Theme.kt` dark `watermark`, `backdropArc*` | 8–10 % white at 84 sp and 34 dp stroke | Watermark 4 %, arcs 4–6 % |
+| D5 | Watermark and decorative arcs visible as grey shapes | `Theme.kt` dark `watermark`, `backdropArc*` | 8–10 % white at 84 sp and 34 dp stroke | Watermark 4 %, arcs 1.6–2.4 % |
 | D6 | White window flash before Compose | `res/values/themes.xml` | Only a light `Theme.HMXArena` / splash existed; no `values-night` variant | Added `values-night/themes.xml` and a dark splash style; `MainActivity` picks it up from the persisted mode |
 | D7 | Black splash icon on black background | `res/drawable/ic_hmx_mark.xml` | Icon was near-black in every configuration | Added `drawable-night/ic_hmx_mark.xml` in light ink |
 | D8 | Light first frame when app Dark is chosen on a Light system | Splash theme | The platform splash cannot read DataStore | Synchronous write-through cache (`HmxThemeBootstrap`) selects the dark splash before `installSplashScreen()` |
@@ -72,6 +72,8 @@ remains in the main UI.
 | G5 | Frames dropped while scrolling | Cards | A RenderEffect blur per list row | Cards no longer blur; they keep vibrancy, edge, highlight and shadow |
 | G6 | Low-RAM / API < 31 devices | `liquidGlassSupported` | No graceful plan | Effects disabled; identical layout with translucent gradient, border and shadow |
 | G7 | Inconsistent pressed feedback | Buttons, icon buttons, cards | Some used default ripple only, some nothing | All buttons scale; icon buttons add a pressed overlay; clickable cards add a pressed overlay; every clickable still has an immediate indication |
+| G8 | Bright line / grey band under the shared header | `Glass.kt` `GlassTopBar`, `LiquidGlass.kt` | Chrome glass drew a closed specular contour plus a 22 dp drop shadow and inner shadow | New `HmxGlassEdge.Top` disables the closed contour/shadow and draws a top-only outline; see `TOP_HEADER_FIX_REPORT.md` |
+| G9 | Settings “appearance” preview squeezed to one character per line | `Glass.kt` `GlassChip` | Inner `Box(fillMaxSize)` made a chip in a `Row` consume all remaining width | Chip content sizes to its label (`maxLines = 1`, no wrap) |
 
 Backdrop compatibility decision: stay on `io.github.kyant0:backdrop:1.0.0`.
 Its metadata targets Kotlin `2.2.21` / Compose `1.9.4`, exactly the versions this

@@ -297,7 +297,9 @@ private fun ThemeToggle(
 ) {
     GlassIconButton(
         icon = if (isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
-        contentDescription = "Switch theme",
+        // The state is part of the description so the screenshot workflow can
+        // prove a switch actually happened from the UI dump, not just a colour.
+        contentDescription = if (isDark) "Switch theme (currently dark)" else "Switch theme (currently light)",
         onClick = onToggleTheme,
     )
 }
