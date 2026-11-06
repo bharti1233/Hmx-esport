@@ -14,7 +14,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -157,7 +156,7 @@ fun GlassScaffold(
     // content column is inset by the rail width so nothing is covered.
     val railInset = if (wide && bottomBar != null) HmxRailWidth else 0.dp
 
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
             // HmxGlassHost already paints this background. Only paint a local
             // copy when GlassScaffold is used without the host (e.g. previews),
