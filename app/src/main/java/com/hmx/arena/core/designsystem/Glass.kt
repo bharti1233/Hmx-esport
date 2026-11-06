@@ -281,6 +281,14 @@ fun HmxBrandMark(
                 tint = HmxColor.Ink,
                 modifier = Modifier.size(size * 0.6f),
             )
+            // A full hairline keeps the circular logo legible on the very
+            // light header, where a white-on-white glass disc would otherwise
+            // disappear. Drawn inside the clipped surface, so it is a ring.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .border(1.dp, HmxColor.HairlineStrong, CircleShape),
+            )
         }
     }
 }
