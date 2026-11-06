@@ -49,10 +49,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Canvas
@@ -66,6 +68,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.hmx.arena.R
 
 /**
  * A frosted translucent surface.
@@ -201,6 +204,7 @@ fun GlassTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
     HmxLiquidGlassSurface(
@@ -208,7 +212,11 @@ fun GlassTopBar(
         shape = HmxShapes.pill,
         level = HmxGlassLevel.Chrome,
         fill = HmxColor.GlassChrome,
-        elevation = 8.dp,
+        elevation = 0.dp,
+        // A floating bar must not close its outline: the bottom specular edge
+        // and the chrome drop shadow are what produced the grey line under the
+        // header on every screen.
+        edge = HmxGlassEdge.Top,
         contentPadding = PaddingValues(horizontal = 8.dp),
     ) {
         Row(
@@ -217,6 +225,10 @@ fun GlassTopBar(
                 .height(56.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (leading != null) {
+                leading()
+                Spacer(Modifier.width(10.dp))
+            }
             if (onBack != null) {
                 GlassIconButton(
                     icon = Icons.Rounded.ArrowBack,
@@ -224,17 +236,51 @@ fun GlassTopBar(
                     onClick = onBack,
                 )
                 Spacer(Modifier.width(10.dp))
-            } else {
+            } else if (leading == null) {
                 Spacer(Modifier.width(8.dp))
             }
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 color = HmxColor.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             actions()
             Spacer(Modifier.width(4.dp))
+        }
+    }
+}
+
+/**
+ * Circular HMX Arena brand mark used in the shared top bar.
+ *
+ * It reuses the launcher/splash vector (`ic_hmx_mark`, with a night variant) so
+ * the header, the splash and the app icon all show the same logo. The mark is
+ * tinted with the active theme ink and sits on a small glass disc; the disc is
+ * intentionally shadowless so it does not add another edge inside the header.
+ */
+@Composable
+fun HmxBrandMark(
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+) {
+    HmxLiquidGlassSurface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        level = HmxGlassLevel.Control,
+        fill = HmxColor.GlassControl,
+        elevation = 0.dp,
+        edge = HmxGlassEdge.Top,
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(R.drawable.ic_hmx_mark),
+                contentDescription = null,
+                tint = HmxColor.Ink,
+                modifier = Modifier.size(size * 0.6f),
+            )
         }
     }
 }

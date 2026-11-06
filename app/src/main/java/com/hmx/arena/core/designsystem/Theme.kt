@@ -198,12 +198,12 @@ val HmxDarkColorScheme: HmxColorScheme = HmxColorScheme(
     // Dark bloom is a faint neutral light source, never a white glow. This is
     // the main safeguard against "light patches" behind dark glass.
     backdropBloom = Color(0xFFC1C5CE),
-    backdropCloud = Color(0x0FC9C9D2),
+    backdropCloud = Color(0x0AC9C9D2),
     backdropCloudSoft = Color(0x00C9C9D2),
-    backdropMid = Color(0x0AEDEDF2),
-    backdropArc = Color(0x0FFFFFFF),
-    backdropArcSoft = Color(0x08FFFFFF),
-    backdropRing = Color(0x0AFFFFFF),
+    backdropMid = Color(0x07EDEDF2),
+    backdropArc = Color(0x06FFFFFF),
+    backdropArcSoft = Color(0x04FFFFFF),
+    backdropRing = Color(0x05FFFFFF),
     watermark = Color(0x0AF5F5F7),
     glass = HmxGlassTokens(
         surface = Color(0x3D17171A),

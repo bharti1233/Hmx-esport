@@ -56,8 +56,11 @@ class ThemeTokensTest {
         val dark = HmxDarkColorScheme
         assertTrue("dark bloom must not be white", luminance(dark.backdropBloom) < 0.85f)
         assertTrue("dark watermark must stay subtle", dark.watermark.alpha <= 0.08f)
-        assertTrue("dark arcs must stay subtle", dark.backdropArc.alpha <= 0.10f)
-        assertTrue("dark rings must stay subtle", dark.backdropRing.alpha <= 0.10f)
+        assertTrue("dark arcs must stay subtle", dark.backdropArc.alpha <= 0.03f)
+        assertTrue("dark soft arcs must stay subtle", dark.backdropArcSoft.alpha <= 0.025f)
+        assertTrue("dark rings must stay subtle", dark.backdropRing.alpha <= 0.03f)
+        assertTrue("dark diffuse cloud must stay subtle", dark.backdropCloud.alpha <= 0.05f)
+        assertTrue("dark mid glow must stay subtle", dark.backdropMid.alpha <= 0.04f)
     }
 
     @Test

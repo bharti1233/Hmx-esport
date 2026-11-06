@@ -103,12 +103,20 @@ fun ApiException.isNetworkError(): Boolean = cause is IOException
 fun HmxPage(
     title: String,
     onBack: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
     actions: @Composable () -> Unit = {},
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     GlassScaffold(
-        topBar = { HmxLiquidGlassTopBar(title = title, onBack = onBack, actions = actions) },
+        topBar = {
+            HmxLiquidGlassTopBar(
+                title = title,
+                onBack = onBack,
+                leading = leading,
+                actions = actions,
+            )
+        },
         bottomBar = bottomBar,
     ) {
         content()

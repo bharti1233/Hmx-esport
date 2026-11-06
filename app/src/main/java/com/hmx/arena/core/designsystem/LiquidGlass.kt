@@ -34,6 +34,17 @@ import com.kyant.backdrop.shadow.Shadow
 enum class HmxGlassLevel { Card, Control, Chrome }
 
 /**
+ * How the specular outline of a glass surface is drawn.
+ *
+ * [Full] closes the outline all the way round, which is right for a floating
+ * card or a sheet. [Top] lights only the top lip and lets the bottom of the
+ * surface dissolve into the page. The shared top bar uses [Top]: a full
+ * contour plus the chrome drop shadow drew a bright one-pixel line and a grey
+ * band along the bottom of the header, which read as an unwanted divider.
+ */
+enum class HmxGlassEdge { Full, Top }
+
+/**
  * The single real glass implementation used by the whole app.
  *
  * On capable devices this attaches the Kyant0 Backdrop rendering pipeline:
@@ -50,6 +61,7 @@ fun Modifier.hmxLiquidGlass(
     level: HmxGlassLevel = HmxGlassLevel.Card,
     fill: Color = HmxColor.Glass,
     elevation: Dp = 10.dp,
+    edge: HmxGlassEdge = HmxGlassEdge.Full,
 ): Modifier {
     val scheme = hmxColorScheme()
     val tokens = scheme.glass
@@ -64,13 +76,41 @@ fun Modifier.hmxLiquidGlass(
             elevation = elevation,
             tokens = tokens,
             scheme = scheme,
+            edge = edge,
         )
     }
 
     val chrome = level == HmxGlassLevel.Chrome
     val control = level == HmxGlassLevel.Control
+    val fullEdge = edge == HmxGlassEdge.Full
 
-    return this
+    val highlight: (() -> Highlight?)? = if (fullEdge) {
+        {
+            Highlight.Default.copy(
+                width = if (chrome) 1.dp else 0.75.dp,
+                blurRadius = if (chrome) 0.75.dp else 0.5.dp,
+                alpha = if (chrome) tokens.chromeHighlightAlpha else tokens.highlightAlpha,
+            )
+        }
+    } else {
+        null
+    }
+    val shadow: (() -> Shadow?)? = if (fullEdge) {
+        {
+            Shadow(
+                radius = if (chrome) 22.dp else 14.dp,
+                offset = DpOffset(0.dp, if (chrome) 10.dp else 6.dp),
+                color = tokens.outerShadowColor.copy(
+                    alpha = if (chrome) tokens.chromeOuterShadowAlpha else tokens.outerShadowAlpha,
+                ),
+                alpha = 1f,
+            )
+        }
+    } else {
+        null
+    }
+
+    val surface = this
         .drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
@@ -102,24 +142,9 @@ fun Modifier.hmxLiquidGlass(
                     }
                 }
             },
-            highlight = {
-                Highlight.Default.copy(
-                    width = if (chrome) 1.dp else 0.75.dp,
-                    blurRadius = if (chrome) 0.75.dp else 0.5.dp,
-                    alpha = if (chrome) tokens.chromeHighlightAlpha else tokens.highlightAlpha,
-                )
-            },
-            shadow = {
-                Shadow(
-                    radius = if (chrome) 22.dp else 14.dp,
-                    offset = DpOffset(0.dp, if (chrome) 10.dp else 6.dp),
-                    color = tokens.outerShadowColor.copy(
-                        alpha = if (chrome) tokens.chromeOuterShadowAlpha else tokens.outerShadowAlpha,
-                    ),
-                    alpha = 1f,
-                )
-            },
-            innerShadow = if (chrome) {
+            highlight = highlight,
+            shadow = shadow,
+            innerShadow = if (chrome && fullEdge) {
                 {
                     InnerShadow(
                         radius = 14.dp,
@@ -155,6 +180,25 @@ fun Modifier.hmxLiquidGlass(
                 )
             },
         )
+
+    // For a top-only edge, draw our own vertical-gradient outline: strong at
+    // the top lip, fading to transparent before the bottom. This keeps the
+    // Liquid Glass edge without the closed contour that reads as a divider.
+    return if (edge == HmxGlassEdge.Top) {
+        surface
+            .clip(shape)
+            .border(
+                width = if (chrome) 1.dp else 0.75.dp,
+                brush = Brush.verticalGradient(
+                    0f to tokens.edge,
+                    0.55f to tokens.edge.copy(alpha = tokens.edge.alpha * 0.22f),
+                    1f to Color.Transparent,
+                ),
+                shape = shape,
+            )
+    } else {
+        surface
+    }
 }
 
 @Composable
@@ -164,16 +208,24 @@ private fun Modifier.hmxGlassFallback(
     elevation: Dp,
     tokens: HmxGlassTokens,
     scheme: HmxColorScheme,
+    edge: HmxGlassEdge,
 ): Modifier {
-    return this
-        .shadow(
-            elevation = elevation,
-            shape = shape,
-            ambientColor = scheme.shadow,
-            spotColor = scheme.shadow,
-            clip = false,
-        )
-        .clip(shape)
+    val base = if (edge == HmxGlassEdge.Full) {
+        // A floating card keeps its soft lift; the shared header must not draw
+        // a shadow band underneath itself.
+        this
+            .shadow(
+                elevation = elevation,
+                shape = shape,
+                ambientColor = scheme.shadow,
+                spotColor = scheme.shadow,
+                clip = false,
+            )
+            .clip(shape)
+    } else {
+        this.clip(shape)
+    }
+    return base
         .background(
             brush = Brush.verticalGradient(
                 0f to fill.copy(
@@ -184,7 +236,21 @@ private fun Modifier.hmxGlassFallback(
             ),
             shape = shape,
         )
-        .border(0.75.dp, tokens.edge.copy(alpha = tokens.edge.alpha * 0.8f), shape)
+        .then(
+            if (edge == HmxGlassEdge.Top) {
+                Modifier.border(
+                    width = 0.75.dp,
+                    brush = Brush.verticalGradient(
+                        0f to tokens.edge.copy(alpha = tokens.edge.alpha * 0.8f),
+                        0.55f to tokens.edge.copy(alpha = tokens.edge.alpha * 0.18f),
+                        1f to Color.Transparent,
+                    ),
+                    shape = shape,
+                )
+            } else {
+                Modifier.border(0.75.dp, tokens.edge.copy(alpha = tokens.edge.alpha * 0.8f), shape)
+            },
+        )
 }
 
 /**
@@ -197,12 +263,19 @@ fun HmxLiquidGlassSurface(
     level: HmxGlassLevel = HmxGlassLevel.Card,
     fill: Color = HmxColor.Glass,
     elevation: Dp = 10.dp,
+    edge: HmxGlassEdge = HmxGlassEdge.Full,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier = modifier
-            .hmxLiquidGlass(shape = shape, level = level, fill = fill, elevation = elevation)
+            .hmxLiquidGlass(
+                shape = shape,
+                level = level,
+                fill = fill,
+                elevation = elevation,
+                edge = edge,
+            )
             .padding(contentPadding),
     ) {
         content()

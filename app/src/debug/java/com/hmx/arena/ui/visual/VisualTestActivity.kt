@@ -82,6 +82,7 @@ import com.hmx.arena.core.designsystem.GlassScreenBackground
 import com.hmx.arena.core.designsystem.GlassSectionHeader
 import com.hmx.arena.core.designsystem.GlassStatCell
 import com.hmx.arena.core.designsystem.GlassSurface
+import com.hmx.arena.core.designsystem.HmxBrandMark
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxGlassHost
 import com.hmx.arena.core.designsystem.HmxGlassLevel
@@ -307,10 +308,16 @@ private fun ShowcaseTopBar(
     isDark: Boolean,
     onToggleTheme: () -> Unit,
     onBack: (() -> Unit)? = null,
+    showBrandMark: Boolean = false,
 ) {
     HmxLiquidGlassTopBar(
         title = title,
         onBack = onBack,
+        leading = if (showBrandMark) {
+            { HmxBrandMark() }
+        } else {
+            null
+        },
         actions = {
             ThemeToggle(isDark = isDark, onToggleTheme = onToggleTheme)
         },
@@ -478,6 +485,7 @@ private fun HomeShowcase(onToggleTheme: () -> Unit) {
                 title = "HMX Arena",
                 isDark = isDark,
                 onToggleTheme = onToggleTheme,
+                showBrandMark = true,
             )
         },
         bottomBar = { ShowcaseBottomBar("home") },

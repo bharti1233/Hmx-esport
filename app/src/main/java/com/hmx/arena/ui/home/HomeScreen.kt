@@ -48,6 +48,7 @@ import com.hmx.arena.core.designsystem.GlassIconButton
 import com.hmx.arena.core.designsystem.GlassSectionHeader
 import com.hmx.arena.core.designsystem.GlassStatCell
 import com.hmx.arena.core.designsystem.GlassSurface
+import com.hmx.arena.core.designsystem.HmxBrandMark
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
@@ -144,6 +145,7 @@ fun HomeScreen(
 
     com.hmx.arena.ui.common.HmxPage(
         title = "HMX Arena",
+        leading = { HmxBrandMark() },
         actions = {
             Box {
                 GlassIconButton(

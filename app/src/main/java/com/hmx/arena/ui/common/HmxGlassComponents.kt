@@ -212,9 +212,16 @@ fun HmxLiquidGlassTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
-    GlassTopBar(title = title, onBack = onBack, modifier = modifier, actions = actions)
+    GlassTopBar(
+        title = title,
+        onBack = onBack,
+        modifier = modifier,
+        leading = leading,
+        actions = actions,
+    )
 }
 
 /**
@@ -1034,8 +1041,9 @@ fun HmxGlassTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
     actions: @Composable () -> Unit = {},
-) = HmxLiquidGlassTopBar(title, onBack, modifier, actions)
+) = HmxLiquidGlassTopBar(title, onBack, modifier, leading, actions)
 
 @Composable
 fun HmxGlassBottomSheet(
