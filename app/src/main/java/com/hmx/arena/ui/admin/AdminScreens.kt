@@ -1,8 +1,10 @@
 package com.hmx.arena.ui.admin
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1002,13 +1004,41 @@ private fun AdminMatchRow(
     var menu by remember { mutableStateOf(false) }
     GlassSurface(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)) {
         Column {
-            if (!match.bannerUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = match.bannerUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(110.dp),
-                )
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(HmxColor.CanvasTint)) {
+                if (!match.bannerUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = match.bannerUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.SportsEsports,
+                            contentDescription = null,
+                            tint = HmxColor.InkTertiary,
+                            modifier = Modifier.size(34.dp),
+                        )
+                    }
+                }
+                if (match.isFull) {
+                    Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) {
+                        StatusPill("MATCH FULL", filled = true)
+                    }
+                }
+                if (!match.logoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = match.logoUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp)
+                            .size(54.dp)
+                            .clip(HmxShapes.field),
+                    )
+                }
             }
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -1021,6 +1051,27 @@ private fun AdminMatchRow(
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = HmxColor.InkTertiary,
+                    )
+                    Text(
+                        listOfNotNull(
+                            match.categoryLabel.takeIf { it != "—" },
+                            match.modeLabel.takeIf { it != "—" },
+                            match.typeLabel,
+                            match.map?.takeIf { it.isNotBlank() },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HmxColor.InkTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "Prize ${if (match.prizePoolPaise > 0) Format.money(match.prizePoolPaise) else "—"}" +
+                            " · Per kill ${if (match.perKillPaise > 0) Format.money(match.perKillPaise) else "—"}" +
+                            " · Entry ${if (match.entryFeePaise > 0) Format.money(match.entryFeePaise) else "Free"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HmxColor.InkTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
