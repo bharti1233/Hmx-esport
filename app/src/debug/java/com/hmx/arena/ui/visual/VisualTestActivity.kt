@@ -91,6 +91,7 @@ import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.HmxTheme
 import com.hmx.arena.core.designsystem.HmxThemeMode
 import com.hmx.arena.core.designsystem.ThemeViewModel
+import com.hmx.arena.core.designsystem.hmxColorScheme
 import com.hmx.arena.core.model.LeaderboardRow
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.Profile
@@ -179,7 +180,7 @@ class VisualTestActivity : ComponentActivity() {
                     onModeChange = themeViewModel::setMode,
                 ) {
                     HmxGlassHost {
-                        val isDark = HmxColor.Ink.luminance() < 0.5f
+                        val isDark = hmxColorScheme().isDark
                         val toggle = {
                             themeViewModel.setMode(
                                 if (isDark) HmxThemeMode.LIGHT else HmxThemeMode.DARK,
@@ -209,9 +210,6 @@ class VisualTestActivity : ComponentActivity() {
         }
     }
 }
-
-private fun Color.luminance(): Float =
-    0.2126f * red + 0.7152f * green + 0.0722f * blue
 
 // ---------------------------------------------------------------------------
 // Demo data
@@ -373,7 +371,7 @@ private fun Greeting(title: String, subtitle: String) {
 
 @Composable
 private fun SignInShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     var email by remember { mutableStateOf("shadowstrike@hmx.gg") }
     var password by remember { mutableStateOf("hmxarena") }
     Box(Modifier.fillMaxSize()) {
@@ -480,7 +478,7 @@ private fun SignInShowcase(onToggleTheme: () -> Unit) {
 
 @Composable
 private fun HomeShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     GlassScaffold(
         topBar = {
             ShowcaseTopBar(
@@ -583,7 +581,7 @@ private fun HomeShowcase(onToggleTheme: () -> Unit) {
 
 @Composable
 private fun ArenaShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     var query by remember { mutableStateOf("") }
     var chip by remember { mutableIntStateOf(0) }
     val filters = listOf("All", "Live", "Upcoming", "Free entry")
@@ -637,7 +635,7 @@ private fun ArenaShowcase(onToggleTheme: () -> Unit) {
 
 @Composable
 private fun TournamentDetailShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     GlassScaffold(
         topBar = {
             ShowcaseTopBar(
@@ -747,7 +745,7 @@ private fun DetailRow(label: String, value: String) {
 
 @Composable
 private fun MatchesShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     var chip by remember { mutableIntStateOf(0) }
     GlassScaffold(
         topBar = {
@@ -826,7 +824,7 @@ private fun MatchesShowcase(onToggleTheme: () -> Unit) {
 
 @Composable
 private fun LeaderboardShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     var entity by remember { mutableIntStateOf(0) }
     var period by remember { mutableIntStateOf(1) }
     GlassScaffold(
@@ -903,7 +901,7 @@ private fun LeaderboardShowcase(onToggleTheme: () -> Unit) {
 
 @Composable
 private fun ProfileShowcase(onToggleTheme: () -> Unit) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     GlassScaffold(
         topBar = {
             ShowcaseTopBar(title = "Profile", isDark = isDark, onToggleTheme = onToggleTheme)
@@ -1034,7 +1032,7 @@ private fun SettingsShowcase(
     mode: HmxThemeMode,
     onModeChange: (HmxThemeMode) -> Unit,
 ) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     GlassScaffold(
         topBar = {
             HmxLiquidGlassTopBar(
@@ -1138,7 +1136,7 @@ private fun VisualDemo(
     initialScroll: Int,
     onToggleTheme: () -> Unit,
 ) {
-    val isDark = HmxColor.Ink.luminance() < 0.5f
+    val isDark = hmxColorScheme().isDark
     var selectedTab by remember { mutableStateOf("home") }
     var sheetVisible by remember { mutableStateOf(initialState == "sheet") }
     var dialogVisible by remember { mutableStateOf(initialState == "dialog") }

@@ -192,6 +192,46 @@ tap_node() {
   timeout 10 adb shell input tap $coords
 }
 
+# Exact-match variant. Needed for short labels such as "Dark": a substring
+# search also matches the "Dark glass" preview text and would tap the label
+# instead of the segment.
+node_bounds_exact() {
+  local needle="$1"
+  timeout 20 adb shell uiautomator dump /sdcard/hmx-window.xml > /dev/null 2>&1 || true
+  timeout 15 adb pull /sdcard/hmx-window.xml artifacts/ui-last.xml > /dev/null 2>&1 || true
+  python3 - "$needle" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+needle = sys.argv[1].lower()
+try:
+    tree = ET.parse('artifacts/ui-last.xml')
+except Exception:
+    sys.exit(0)
+for node in tree.iter('node'):
+    text = (node.get('text') or '').lower()
+    desc = (node.get('content-desc') or '').lower()
+    if text == needle or desc == needle:
+        bounds = node.get('bounds') or ''
+        m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds)
+        if m:
+            x1, y1, x2, y2 = map(int, m.groups())
+            print((x1 + x2) // 2, (y1 + y2) // 2)
+            break
+PY
+}
+
+tap_node_exact() {
+  local needle="$1"
+  clear_anr_dialog || true
+  local coords
+  coords="$(node_bounds_exact "$needle")"
+  if [ -z "$coords" ]; then
+    echo "Could not find exact UI node: $needle" >&2
+    return 1
+  fi
+  echo "Tap exact '$needle' at $coords"
+  timeout 10 adb shell input tap $coords
+}
+
 # --- Light + Dark matrix: 8 screens x 2 themes = 16 captures ----------------
 # Keep going after an individual failure so the uploaded artifact still shows
 # every screen; the final count check below fails the job if any are missing.
@@ -222,7 +262,7 @@ sleep 2
 start_screen arena light
 wait_for_app_frame 17-arena-light-search.png || true
 sleep 12
-tap_node "Search tournaments" || true
+tap_node "Search tournaments" || tap_node "Search" || true
 sleep 1
 timeout 15 adb shell input text "weekend" || true
 sleep 1
@@ -280,14 +320,27 @@ sleep 2
 start_screen settings light
 wait_for_app_frame 19b-settings-light-before-persistence.png || true
 sleep 10
-tap_node "Dark" || true
-sleep 8
-dump_theme_state
-if grep -q "Dark glass" artifacts/ui-after-switch.xml 2>/dev/null; then
-  echo "Persistence check: Dark selected in Settings before process death"
-else
-  echo "Persistence check: could not select Dark in Settings before process death" >&2
-fi
+
+# Software rendering can drop the first tap, and the preview label must change
+# before we treat the choice as committed. Retry and fail here (not at the
+# persistence assertion) if the segment never activates.
+select_dark_in_settings() {
+  local attempt=1
+  while [ "$attempt" -le 3 ]; do
+    tap_node_exact "Dark" || true
+    sleep 8
+    dump_theme_state
+    if grep -q "Dark glass" artifacts/ui-after-switch.xml 2>/dev/null; then
+      echo "Persistence check: Dark selected in Settings (attempt $attempt)"
+      return 0
+    fi
+    echo "Persistence check: Dark not active yet (attempt $attempt)" >&2
+    attempt=$((attempt + 1))
+  done
+  echo "Persistence check FAILED: could not select Dark in Settings" >&2
+  return 1
+}
+select_dark_in_settings || exit 1
 
 timeout 20 adb shell am force-stop com.hmx.arena.debug || true
 sleep 2
