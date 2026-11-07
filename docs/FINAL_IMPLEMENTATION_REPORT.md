@@ -190,7 +190,7 @@ not possible in this environment.
 
 Date: 2026-11-07
 Branch: `feature/hmx-admin-tournament-match-management`
-Commits: `64cf2aa`, `8fab042`, `462e4cc`, `49096ee` (not merged to `main`)
+Commits: `64cf2aa`, `8fab042`, `462e4cc`, `49096ee`, `dd7f2c1` (not merged to `main`)
 Migrations: `0014`–`0017`
 
 ## 9. Objective delivered
@@ -274,8 +274,8 @@ logic were preserved.
   cancellation releasing match slots, RLS/direct-write blocking, non-admin
   rejection, admin audit write/read and grant hardening.
 - Android: `:app:testDebugUnitTest`, `:app:lintDebug` and `:app:assembleDebug`
-  pass in GitHub Actions (final run `42382037477` on `49096ee`). The earlier
-  `64cf2aa` compile failure was fixed in `8fab042`.
+  pass in GitHub Actions (final code run `42382903273` on `dd7f2c1`). The
+  earlier `64cf2aa` compile failure was fixed in `8fab042`.
 - Full details and exact run URLs are in `TOURNAMENT_TEST_REPORT.md`.
 
 ## 12. Honest limitations
