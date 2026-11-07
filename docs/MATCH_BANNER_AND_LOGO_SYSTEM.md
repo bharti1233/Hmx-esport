@@ -1,7 +1,8 @@
 # Match Banner and Logo System
 
 Date: 2026-11-07
-Migration: `0015_admin_artwork_storage`
+Migration: `0015_admin_artwork_storage` and
+`0015_match_assets_tournament_logo_path`
 Related: `0014_admin_tournament_match_management`
 Files: `AdminRepository.kt`, `CommonUi.kt`, `MatchScreens.kt`
 
