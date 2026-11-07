@@ -63,6 +63,7 @@ business logic or the monochrome Liquid Glass identity.
 | `ui/shell/GlassBottomBar.kt` | Vertical rail mode in the same component |
 | `ui/tournament/TournamentScreens.kt` | `LazyVerticalGrid` with adaptive columns |
 | `.github/scripts/capture-liquid-glass.sh` | Deterministic theme switch/persistence checks |
+| `app/src/debug/.../VisualTestActivity.kt` | Scheme-derived theme state; corrected toggle semantics in the visual harness |
 
 ### 3.3 Backend
 
