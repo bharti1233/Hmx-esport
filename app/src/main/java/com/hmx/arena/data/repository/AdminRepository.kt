@@ -8,6 +8,7 @@ import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
 import com.hmx.arena.data.remote.SupabaseConfig
 import com.hmx.arena.ui.common.PickedImage
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -136,7 +137,7 @@ class AdminRepository @Inject constructor(
     ): Match = remote.rpc(
         "admin_upsert_match",
         buildJsonObject {
-            put("p_id", id ?: JsonNull)
+            if (id != null) put("p_id", id) else put("p_id", JsonNull)
             put("p_payload", payload)
             put("p_confirm_locked", confirmLocked)
         },
@@ -233,7 +234,7 @@ class AdminRepository @Inject constructor(
     )
 
     private fun idArgs(id: String?, payload: JsonObject): JsonObject = buildJsonObject {
-        put("p_id", id ?: JsonNull)
+        if (id != null) put("p_id", id) else put("p_id", JsonNull)
         put("p_payload", payload)
     }
 }

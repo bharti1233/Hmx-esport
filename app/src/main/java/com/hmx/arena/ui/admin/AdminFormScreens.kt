@@ -116,8 +116,8 @@ private val isoFormatter = DateTimeFormatter.ISO_INSTANT
 private fun DateTimeField(
     label: String,
     value: String?,
-    onChange: (String?) -> Unit,
     optional: Boolean = false,
+    onChange: (String?) -> Unit,
 ) {
     val context = LocalContext.current
     val zoned = remember(value) {
