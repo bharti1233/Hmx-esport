@@ -1,6 +1,7 @@
 package com.hmx.arena.ui.match
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -53,6 +57,7 @@ import com.hmx.arena.core.designsystem.GlassSectionHeader
 import com.hmx.arena.core.designsystem.GlassSurface
 import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
+import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.model.Dispute
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.MatchCredentials
@@ -291,6 +296,53 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    if (!match.bannerUrl.isNullOrBlank() || !match.logoUrl.isNullOrBlank()) {
+                        item {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(HmxShapes.large)
+                                    .background(HmxColor.CanvasTint),
+                            ) {
+                                if (!match.bannerUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = match.bannerUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                } else {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Rounded.SportsEsports,
+                                            contentDescription = null,
+                                            tint = HmxColor.InkTertiary,
+                                            modifier = Modifier.size(40.dp),
+                                        )
+                                    }
+                                }
+                                if (match.isFull) {
+                                    Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                                        StatusPill("MATCH FULL", filled = true)
+                                    }
+                                }
+                                if (!match.logoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = match.logoUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(14.dp)
+                                            .size(64.dp)
+                                            .clip(HmxShapes.field)
+                                            .background(HmxColor.CanvasTint),
+                                    )
+                                }
+                            }
+                        }
+                    }
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             StatusPill(match.status.replaceFirstChar { it.uppercase() })

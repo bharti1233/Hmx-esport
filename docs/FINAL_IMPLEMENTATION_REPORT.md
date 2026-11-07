@@ -183,3 +183,140 @@ glass/image pipeline for low-RAM devices. It is suitable for a staged rollout
 after the two launch blockers in `PRODUCTION_READINESS_REPORT.md` are closed. It
 is not presented as measured on low-end hardware, because that measurement was
 not possible in this environment.
+
+---
+
+# Part 2 — Admin Tournament & Match Management
+
+Date: 2026-11-07
+Branch: `feature/hmx-admin-tournament-match-management`
+Commits: `64cf2aa`, `8fab042`, `462e4cc` (not merged to `main`)
+Migrations: `0014`–`0017`
+
+## 9. Objective delivered
+
+A complete, server-authoritative system for:
+
+1. registering for and cancelling tournament entries without false errors;
+2. DB-driven categories, game modes and tournament types that can be renamed or
+   deactivated without breaking history;
+3. admin-managed tournament lifecycle, fields, artwork and capacity;
+4. independent matches, each with its own 16:9 banner, 1:1 logo, rewards,
+   schedule, capacity and publication state;
+5. atomic match registration and cancellation with a `MATCH FULL` state;
+6. admin authorisation through roles/RLS/RPCs with an audit log;
+7. player screens sourced from the backend rather than sample data.
+
+The monochrome Liquid Glass identity, navigation, auth and existing business
+logic were preserved.
+
+## 10. What changed
+
+### Player-facing
+
+- **Tournament details** reduced to banner, title, game/category/mode/map,
+  prize, entry fee, status, capacity, match date/time, register/cancel and the
+  caller's registration state. Rules/participants/schedule/leaderboard
+  navigation, About and the long Schedule block were removed, along with the
+  empty spacing they caused.
+- **Match feed and match detail** rebuilt around two artworks: a true 16:9
+  banner and a separate 1:1 logo badge. Cards show prize pool, per-kill, entry
+  fee, capacity progress, `MATCH FULL` and `Registered` pills.
+- **Match registration** is independent of tournament registration, uses the
+  server-calculated slot, supports team registration and cancels atomically.
+- Cancelling a tournament registration also releases the player's confirmed
+  match slots in that tournament.
+
+### Admin
+
+- New **Admin console** in Settings, rendered only when the server-side
+  `is_admin()` RPC returns true.
+- Screens for categories, game modes, tournament types, tournaments, matches,
+  artwork upload and audit logs.
+- Tournament form: every listed field, schedule pickers, banner/logo, prize,
+  per-kill, entry fee, version/format, capacity, featured and lifecycle status.
+- Match form: optional tournament, game/lookups, match number, round, rewards,
+  entry fee, version/format, capacity, registration window, schedule, banner,
+  logo, publish toggle and a locked-edit confirmation.
+- Match actions: create, edit, duplicate, publish/unpublish, status changes and
+  delete (guarded by registrations).
+- Lookup management: create, rename, reorder, activate/deactivate, archive,
+  delete-when-unused and category logo upload.
+
+> Rules and `archived_at` are supported by the admin RPCs but are not exposed as
+> form controls in this iteration. Existing rules are preserved because the
+> client only sends `rules` when it is meant to replace them.
+
+### Backend
+
+- Lookup tables `categories`, `game_modes`, `tournament_types` with nullable,
+  `on delete restrict` FKs from tournaments and matches; legacy `mode` /
+  `entry_type` are synchronised for known slugs.
+- `matches.tournament_id` is nullable; matches gained game, lookups, artwork,
+  rewards, entry fee, capacity, registration window, publication and archive
+  columns.
+- `match_registrations` with a unique `(match_id, user_id)` and per-user RLS.
+- Atomic `register_for_match` / `cancel_match_registration` using row locks;
+  `cancel_registration` updated to release match slots and keep waitlist
+  promotion.
+- `SECURITY DEFINER` admin RPCs guarded by `require_admin()`, fixed
+  `search_path`, and an `audit_logs` row per mutation.
+- Storage: `category-logos`, `match-assets`, and completed
+  `tournament-banners` admin update/delete lifecycle.
+- Grant hardening: `0016` restricts lookup/match-registration writes;
+  `0017` removes anonymous EXECUTE from admin and match RPCs.
+
+## 11. Verification summary
+
+- Backend suites in rolled-back transactions: category/tournament/match CRUD,
+  rename propagation, duplicate registration, overbooking rejection, foreign
+  cancellation rejection, slot restoration, idempotent cancellation, tournament
+  cancellation releasing match slots, RLS/direct-write blocking, non-admin
+  rejection, admin audit write/read and grant hardening.
+- Android: `:app:testDebugUnitTest`, `:app:lintDebug` and `:app:assembleDebug`
+  pass in GitHub Actions. The earlier `64cf2aa` compile failure was fixed in
+  `8fab042`.
+- Full details and exact run URLs are in `TOURNAMENT_TEST_REPORT.md`.
+
+## 12. Honest limitations
+
+1. **No admin account in production.** `user_roles` contains only player rows.
+   The admin UI therefore cannot be exercised end to end until an admin role is
+   granted manually. The grant is intentionally not exposed as an RPC.
+2. **No device/emulator run.** UI verification is static plus CI compile, unit
+   tests and lint. No screenshots or interaction tests were produced.
+3. **No staging project.** Database tests ran on production inside rolled-back
+   transactions; no destructive test setup was committed.
+4. **Concurrency** is guaranteed by `FOR UPDATE` row locks and was tested with
+   serial transactions, not parallel HTTP clients.
+5. **Storage objects are not auto-deleted** when their row is deleted; a cleanup
+   job is future work.
+6. **Realtime** is not used for these feeds; screens refetch after a successful
+   action, which is deterministic and leaves no stale subscription.
+7. **Pre-existing advisor items** (`get_leaderboard` et al. callable by anon,
+   leaked-password protection disabled, deny-all RLS tables) remain outside this
+   change set and are recorded in `TOURNAMENT_SECURITY_AUDIT.md`.
+
+## 13. Documentation index
+
+- `TOURNAMENT_REGISTRATION_CANCELLATION_FIX.md`
+- `TOURNAMENT_DETAILS_UI_REVISION.md`
+- `ADMIN_CATEGORY_MANAGEMENT.md`
+- `ADMIN_GAME_MODE_MANAGEMENT.md`
+- `ADMIN_TOURNAMENT_TYPE_MANAGEMENT.md`
+- `ADMIN_TOURNAMENT_MANAGEMENT.md`
+- `ADMIN_MATCH_MANAGEMENT.md`
+- `MATCH_BANNER_AND_LOGO_SYSTEM.md`
+- `MATCH_CAPACITY_AND_REGISTRATION.md`
+- `TOURNAMENT_SECURITY_AUDIT.md`
+- `TOURNAMENT_TEST_REPORT.md`
+
+## 14. Part 2 bottom line
+
+The feature is implemented end to end in source and in the live database.
+Player registration and cancellation are correct and atomic, lookup data is
+DB-driven and rename-safe, admins have full tournament/match/artwork control
+behind server-side role checks, and every mutation is audited. The work is
+ready to merge into the feature branch, not `main`, and the only blockers to a
+full end-to-end demonstration are operational: creating an admin account and
+running the app on a device or emulator.

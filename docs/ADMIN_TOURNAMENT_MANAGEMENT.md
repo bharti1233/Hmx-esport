@@ -20,7 +20,8 @@ Settings → Admin console → Tournaments
 RPC; it is not a local preference.
 
 The tournament list shows title, status, game, category, mode, capacity and
-schedule, with per-row actions: edit, change status, publish/archive, delete.
+schedule, with per-row actions: edit, change status (open/close registration,
+live, completed, cancelled) and delete draft.
 
 ## Editable fields
 
@@ -47,8 +48,11 @@ schedule, with per-row actions: edit, change status, publish/archive, delete.
 | Region | `region` | default `IN` |
 | Featured | `is_featured` | boolean |
 | Version / format | `version`, `format` | free text |
-| Rules | `tournament_rules` | array of `{title, body}` |
-| Archive | `archived_at` | only while draft |
+
+The RPC also accepts `rules` and `archived_at`, but the current Android form
+does not expose them. Existing rules are left untouched unless the payload
+contains `rules`; archiving is available through the API but not as a form
+toggle.
 
 ## Server RPCs
 
@@ -76,7 +80,8 @@ All are `SECURITY DEFINER`, `search_path = public, pg_temp`, and start with
 - `capacity_below_registrations` if `max_slots < slots_filled`.
 - `invalid_registration_window`, `start_before_registration_close`,
   `end_before_start`, `archived_tournament_must_be_draft`.
-- Rules are replaced atomically only when the payload includes `rules`.
+- Rules are replaced atomically only when the payload includes `rules`; the
+  current form omits the key, so existing rules are preserved.
 
 ## Status lifecycle
 
@@ -92,8 +97,9 @@ draft ──► registration_open ──► registration_closed ──► live �
 - `admin_delete_tournament` refuses when registrations exist
   (`tournament_has_registrations`) and when the status is not `draft`
   (`only_draft_tournaments_can_be_deleted`).
-- Archiving is a soft delete: set `archived_at` while still draft, keeping
-  history and foreign keys.
+- Archiving is a soft delete at the data layer: `archived_at` may only be set
+  while the tournament is still `draft`, keeping history and foreign keys. The
+  current form exposes the lifecycle statuses instead of an archive toggle.
 
 ## Artwork
 
