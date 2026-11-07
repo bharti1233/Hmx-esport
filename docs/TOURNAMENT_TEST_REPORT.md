@@ -2,7 +2,7 @@
 
 Date: 2026-11-07
 Branch: `feature/hmx-admin-tournament-match-management`
-Commits tested: `64cf2aa`, `8fab042`, `462e4cc`
+Commits tested: `64cf2aa`, `8fab042`, `49096ee`
 Database: live Supabase project `hmxesport` (`ahsvxxhaowwhqermruhz`)
 Migrations: `0014`, `0015`, `0016`, `0017`
 
@@ -109,17 +109,18 @@ Steps: `:app:testDebugUnitTest` → `:app:lintDebug` → `:app:assembleDebug`.
 | --- | --- | --- | --- |
 | [42380938076](https://github.com/bharti1233/Hmx-esport/actions/runs/42380938076) | `64cf2aa` | **Failure** | Compile errors: missing serializer import, `Any` typing for optional JSON ids, `DateTimeField` trailing-lambda parameter order |
 | [42381380161](https://github.com/bharti1233/Hmx-esport/actions/runs/42381380161) | `8fab042` | **Success** | Unit tests, lint and debug APK all `BUILD SUCCESSFUL` |
-| [42381738812](https://github.com/bharti1233/Hmx-esport/actions/runs/42381738812) | `462e4cc` | **Success** | Final docs + `0017`; same three steps passed |
+| [42381738812](https://github.com/bharti1233/Hmx-esport/actions/runs/42381738812) | `462e4cc` | Cancelled | Superseded by the final run through the workflow concurrency group |
+| [42382037477](https://github.com/bharti1233/Hmx-esport/actions/runs/42382037477) | `49096ee` | **Success** | Final code + docs + `0017`; unit tests, lint and debug APK all passed |
 
-The `8fab042` run produced:
+The `49096ee` final run produced:
 
 ```
 > Task :app:testDebugUnitTest
-BUILD SUCCESSFUL in 1m 35s
+BUILD SUCCESSFUL in 1m 30s
 > Task :app:lintDebug
-BUILD SUCCESSFUL in 1m 42s
+BUILD SUCCESSFUL in 1m 35s
 > Task :app:assembleDebug
-BUILD SUCCESSFUL in 32s
+BUILD SUCCESSFUL in 30s
 ```
 
 The debug APK artifact `hmx-arena-debug-apk` was uploaded for the successful
