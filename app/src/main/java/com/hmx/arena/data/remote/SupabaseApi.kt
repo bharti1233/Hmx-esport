@@ -31,6 +31,9 @@ object SupabaseConfig {
     const val RESULT_EVIDENCE_BUCKET = "result-evidence"
     const val AVATARS_BUCKET = "avatars"
     const val TEAM_LOGOS_BUCKET = "team-logos"
+    const val TOURNAMENT_BANNERS_BUCKET = "tournament-banners"
+    const val CATEGORY_LOGOS_BUCKET = "category-logos"
+    const val MATCH_ASSETS_BUCKET = "match-assets"
 }
 
 interface AuthApi {
@@ -79,6 +82,17 @@ interface RestApi {
         @Path("fn") fn: String,
         @Body body: kotlinx.serialization.json.JsonObject,
     ): kotlinx.serialization.json.JsonElement
+
+    /**
+     * Void RPCs answer 204 No Content. Keeping the response untyped avoids the
+     * empty-body deserialization failure that used to surface as a generic
+     * error after a successful cancellation.
+     */
+    @POST("rest/v1/rpc/{fn}")
+    suspend fun rpcVoid(
+        @Path("fn") fn: String,
+        @Body body: kotlinx.serialization.json.JsonObject,
+    ): retrofit2.Response<Unit>
 
     @PATCH("rest/v1/{table}")
     suspend fun update(
@@ -214,6 +228,38 @@ private val DB_MESSAGES = mapOf(
     "invalid_level" to "Enter a level between 1 and 100.",
     "invalid_game_identity" to "That game account does not belong to you.",
     "profile_not_found" to "Your profile could not be found. Sign in again.",
+    "match_not_found" to "This match could not be found.",
+    "match_not_available" to "This match is not open for registration.",
+    "match_registration_closed" to "Registration for this match has closed.",
+    "match_registration_not_found" to "This match registration could not be found.",
+    "match_full" to "This match is full.",
+    "already_registered" to "You are already registered.",
+    "capacity_below_registrations" to "Capacity cannot be lower than the number of registered players.",
+    "category_unavailable" to "That category is inactive. Choose another category.",
+    "game_mode_unavailable" to "That game mode is inactive. Choose another game mode.",
+    "tournament_type_unavailable" to "That tournament type is inactive. Choose another type.",
+    "category_in_use" to "This category is assigned to tournaments or matches. Deactivate it instead.",
+    "game_mode_in_use" to "This game mode is assigned to tournaments or matches. Deactivate it instead.",
+    "tournament_type_in_use" to "This tournament type is assigned to tournaments or matches. Deactivate it instead.",
+    "slug_taken" to "That identifier is already in use.",
+    "name_required" to "Enter a name.",
+    "title_required" to "Enter a title.",
+    "schedule_required" to "Choose a date and time.",
+    "start_required" to "Choose a start date and time.",
+    "registration_close_required" to "Choose when registration closes.",
+    "invalid_registration_window" to "Registration must close after it opens.",
+    "start_before_registration_close" to "The start time must be after registration closes.",
+    "end_before_start" to "The end time must be after the start time.",
+    "match_locked_confirmation_required" to "This match has started. Confirm the change before saving.",
+    "completed_match_is_locked" to "A completed match cannot be reopened.",
+    "completed_tournament_is_locked" to "A completed tournament cannot be reopened.",
+    "tournament_has_registrations" to "This tournament has registrations and cannot be deleted.",
+    "only_draft_tournaments_can_be_deleted" to "Only draft tournaments can be deleted.",
+    "match_has_registrations" to "This match has registrations and cannot be deleted.",
+    "archived_tournament_must_be_draft" to "Archive a tournament only while it is a draft.",
+    "tournament_type_not_found" to "This tournament type could not be found.",
+    "category_not_found" to "This category could not be found.",
+    "game_mode_not_found" to "This game mode could not be found.",
 )
 
 fun mapDbMessage(raw: String?): String {

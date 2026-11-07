@@ -3,6 +3,7 @@ package com.hmx.arena.data.repository
 import com.hmx.arena.core.model.LeaderboardRow
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.MatchCredentials
+import com.hmx.arena.core.model.MatchRegistration
 import com.hmx.arena.core.model.MatchResult
 import com.hmx.arena.core.model.Registration
 import com.hmx.arena.core.model.Tournament
@@ -35,6 +36,21 @@ data class MyMatch(
     val registration: Registration,
 )
 
+data class MatchFeedItem(
+    val match: Match,
+    val tournament: Tournament? = null,
+    val matchRegistration: MatchRegistration? = null,
+    val tournamentRegistration: Registration? = null,
+)
+
+private const val LOOKUP_EMBED =
+    "category:categories(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
+        "gameMode:game_modes(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
+        "tournamentType:tournament_types(id,slug,name,description,logo_url,is_active,is_archived,display_order)"
+
+private const val TOURNAMENT_COLUMNS = "*,$LOOKUP_EMBED"
+private const val MATCH_COLUMNS = "*,$LOOKUP_EMBED"
+
 @Singleton
 class TournamentRepository @Inject constructor(
     private val remote: RemoteDataSource,
@@ -59,6 +75,7 @@ class TournamentRepository @Inject constructor(
             "status" to "neq.draft",
             "order" to "is_featured.desc,starts_at.asc",
             "limit" to "60",
+            "select" to TOURNAMENT_COLUMNS,
         )
         if (filter.status != null) params["status"] = "eq.${filter.status}"
         if (filter.mode != null) params["mode"] = "eq.${filter.mode}"
@@ -94,13 +111,14 @@ class TournamentRepository @Inject constructor(
             "status" to "neq.draft",
             "order" to "starts_at.asc",
             "limit" to "5",
+            "select" to TOURNAMENT_COLUMNS,
         ),
         Tournament.serializer(),
     )
 
     suspend fun tournament(id: String): Tournament? = remote.selectOne(
         "tournaments",
-        mapOf("id" to "eq.$id"),
+        mapOf("id" to "eq.$id", "select" to TOURNAMENT_COLUMNS),
         Tournament.serializer(),
     )
 
@@ -124,7 +142,7 @@ class TournamentRepository @Inject constructor(
         if (ids.isEmpty()) return emptyList()
         return remote.select(
             "tournaments",
-            mapOf("id" to "in.(${ids.joinToString(",")})"),
+            mapOf("id" to "in.(${ids.joinToString(",")})", "select" to TOURNAMENT_COLUMNS),
             Tournament.serializer(),
         )
     }
@@ -147,9 +165,73 @@ class TournamentRepository @Inject constructor(
 
     suspend fun tournamentMatches(tournamentId: String): List<Match> = remote.select(
         "matches",
-        mapOf("tournament_id" to "eq.$tournamentId", "order" to "scheduled_at.asc"),
+        mapOf(
+            "tournament_id" to "eq.$tournamentId",
+            "order" to "scheduled_at.asc",
+            "select" to MATCH_COLUMNS,
+        ),
         Match.serializer(),
     )
+
+    /** Every published match is independently registerable, with or without a tournament. */
+    suspend fun publishedMatches(limit: Int = 60): List<Match> = remote.select(
+        "matches",
+        mapOf(
+            "is_published" to "eq.true",
+            "archived_at" to "is.null",
+            "status" to "neq.cancelled",
+            "order" to "scheduled_at.asc",
+            "limit" to limit.toString(),
+            "select" to MATCH_COLUMNS,
+        ),
+        Match.serializer(),
+    )
+
+    suspend fun matchFeed(): List<MatchFeedItem> {
+        val matches = publishedMatches()
+        if (matches.isEmpty()) return emptyList()
+        val myRegistrations = myMatchRegistrations().associateBy { it.matchId }
+        val tournamentIds = matches.mapNotNull { it.tournamentId }.distinct()
+        val tournaments = if (tournamentIds.isEmpty()) emptyList() else tournamentsByIds(tournamentIds)
+        val tournamentsById = tournaments.associateBy { it.id }
+        val tournamentRegistrations = registrations()
+            .filter { it.status == "confirmed" || it.status == "waitlisted" }
+            .associateBy { it.tournamentId }
+        return matches.map { match ->
+            MatchFeedItem(
+                match = match,
+                tournament = match.tournamentId?.let { tournamentsById[it] },
+                matchRegistration = myRegistrations[match.id],
+                tournamentRegistration = match.tournamentId?.let { tournamentRegistrations[it] },
+            )
+        }
+    }
+
+    suspend fun myMatchRegistrations(): List<MatchRegistration> = remote.select(
+        "match_registrations",
+        mapOf(
+            "user_id" to "eq.${uid()}",
+            "status" to "in.(confirmed,waitlisted)",
+            "order" to "created_at.desc",
+        ),
+        MatchRegistration.serializer(),
+    )
+
+    suspend fun registerForMatch(matchId: String, teamId: String? = null): MatchRegistration = remote.rpc(
+        "register_for_match",
+        buildJsonObject {
+            put("p_match_id", matchId)
+            if (teamId != null) put("p_team_id", teamId) else put("p_team_id", kotlinx.serialization.json.JsonNull)
+        },
+        MatchRegistration.serializer(),
+    )
+
+    suspend fun cancelMatchRegistration(registrationId: String) {
+        remote.rpcUnit(
+            "cancel_match_registration",
+            buildJsonObject { put("p_registration_id", registrationId) },
+        )
+    }
 
     suspend fun myMatches(): List<MyMatch> {
         val registrations = registrations().filter { it.status == "confirmed" || it.status == "waitlisted" }
@@ -161,7 +243,10 @@ class TournamentRepository @Inject constructor(
             val tournamentsById = async {
                 remote.select(
                     "tournaments",
-                    mapOf("id" to "in.(${tournamentIds.joinToString(",")})"),
+                    mapOf(
+                        "id" to "in.(${tournamentIds.joinToString(",")})",
+                        "select" to TOURNAMENT_COLUMNS,
+                    ),
                     Tournament.serializer(),
                 ).associateBy { it.id }
             }
@@ -171,15 +256,17 @@ class TournamentRepository @Inject constructor(
                     mapOf(
                         "tournament_id" to "in.(${tournamentIds.joinToString(",")})",
                         "order" to "scheduled_at.asc",
+                        "select" to MATCH_COLUMNS,
                     ),
                     Match.serializer(),
                 )
             }
             val tournaments = tournamentsById.await()
             matches.await().mapNotNull { match ->
-                val registration = registrations.firstOrNull { it.tournamentId == match.tournamentId }
+                val tournamentId = match.tournamentId ?: return@mapNotNull null
+                val registration = registrations.firstOrNull { it.tournamentId == tournamentId }
                     ?: return@mapNotNull null
-                val tournament = tournaments[match.tournamentId] ?: return@mapNotNull null
+                val tournament = tournaments[tournamentId] ?: return@mapNotNull null
                 MyMatch(match, tournament, registration)
             }
         }
@@ -187,7 +274,7 @@ class TournamentRepository @Inject constructor(
 
     suspend fun match(id: String): Match? = remote.selectOne(
         "matches",
-        mapOf("id" to "eq.$id"),
+        mapOf("id" to "eq.$id", "select" to MATCH_COLUMNS),
         Match.serializer(),
     )
 

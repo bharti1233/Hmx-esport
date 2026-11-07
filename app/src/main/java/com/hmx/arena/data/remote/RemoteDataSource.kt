@@ -27,8 +27,8 @@ class RemoteDataSource @Inject constructor(
         params: Map<String, String>,
         deserializer: DeserializationStrategy<T>,
     ): List<T> = guardApi {
-        val element = rest.select(table, params + select())
-        element.decodeList(deserializer)
+        val query = if (params.containsKey("select")) params else params + select()
+        rest.select(table, query).decodeList(deserializer)
     }
 
     suspend fun <T> selectOne(
@@ -36,8 +36,9 @@ class RemoteDataSource @Inject constructor(
         params: Map<String, String>,
         deserializer: DeserializationStrategy<T>,
     ): T? = guardApi {
-        val element = rest.select(table, params + select() + Query.limit(1))
-        element.decodeList(deserializer).firstOrNull()
+        val query = if (params.containsKey("select")) params else params + select()
+        rest.select(table, query + Query.limit(1))
+            .decodeList(deserializer).firstOrNull()
     }
 
     suspend fun selectRaw(table: String, params: Map<String, String>): JsonArray = guardApi {
@@ -53,7 +54,7 @@ class RemoteDataSource @Inject constructor(
         when (element) {
             is JsonArray -> element.firstOrNull()?.let { json.decodeFromJsonElement(deserializer, it) }
             is JsonObject -> json.decodeFromJsonElement(deserializer, element)
-            else -> null
+            else -> runCatching { json.decodeFromJsonElement(deserializer, element) }.getOrNull()
         } ?: throw ApiException("The server returned an unexpected response.")
     }
 
@@ -66,7 +67,7 @@ class RemoteDataSource @Inject constructor(
         when (element) {
             is JsonArray -> element.firstOrNull()?.let { json.decodeFromJsonElement(deserializer, it) }
             is JsonObject -> json.decodeFromJsonElement(deserializer, element)
-            else -> null
+            else -> runCatching { json.decodeFromJsonElement(deserializer, element) }.getOrNull()
         }
     }
 
@@ -78,8 +79,18 @@ class RemoteDataSource @Inject constructor(
         rest.rpc(name, params).decodeList(deserializer)
     }
 
+    /**
+     * PostgREST returns 204 No Content for a void RPC. The previous
+     * implementation called the JSON-returning endpoint, so Retrofit tried to
+     * deserialize an empty body and reported "Something went wrong" even
+     * though the cancellation had succeeded. Use Response<Unit> instead.
+     */
     suspend fun rpcUnit(name: String, params: JsonObject = JsonObject(emptyMap())) = guardApi {
-        rest.rpc(name, params)
+        val response = rest.rpcVoid(name, params)
+        if (!response.isSuccessful) {
+            val message = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(mapDbMessage(parseErrorMessage(message ?: "")), message)
+        }
         Unit
     }
 

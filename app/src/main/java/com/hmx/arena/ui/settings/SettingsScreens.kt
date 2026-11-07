@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SupportAgent
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +75,7 @@ import com.hmx.arena.core.util.Format
 import com.hmx.arena.core.util.Validation
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.repository.AuthRepository
+import com.hmx.arena.data.repository.AdminRepository
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.EmptyBlock
@@ -141,6 +143,21 @@ fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltVi
                 InlineNotice(
                     "This build delivers notifications inside the app only. Push notifications, background reminders and email digests are not enabled, so the app will not alert you when closed.",
                 )
+            }
+            if (ui.isAdmin) {
+                item {
+                    GlassSectionHeader("Administration")
+                    GlassSurface(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            GlassActionRow(
+                                title = "Admin console",
+                                subtitle = "Tournaments, matches and lookup data",
+                                icon = Icons.Rounded.Tune,
+                                onClick = { nav.navigate(Routes.ADMIN) },
+                            )
+                        }
+                    }
+                }
             }
             item {
                 GlassSectionHeader("Help")
@@ -225,12 +242,14 @@ fun SettingsScreen(nav: NavHostController, viewModel: SettingsViewModel = hiltVi
 data class SettingsUi(
     val email: String? = null,
     val profile: Profile? = null,
+    val isAdmin: Boolean = false,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val player: PlayerRepository,
     private val auth: AuthRepository,
+    private val admin: AdminRepository,
     private val session: SessionManager,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(SettingsUi(email = session.snapshotEmail()))
@@ -240,6 +259,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { player.myProfile() }
                 .onSuccess { profile -> _ui.update { it.copy(profile = profile, email = profile.email ?: it.email) } }
+            // The admin entry is shown only after the server confirms the role.
+            runCatching { admin.isAdmin() }
+                .onSuccess { allowed -> _ui.update { it.copy(isAdmin = allowed) } }
         }
     }
 

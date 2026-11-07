@@ -36,6 +36,22 @@ data class PlayerGameAccount(
 )
 
 @Serializable
+data class LookupOption(
+    val id: String,
+    val slug: String = "",
+    val name: String = "",
+    val description: String = "",
+    @SerialName("logo_url") val logoUrl: String? = null,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("is_archived") val isArchived: Boolean = false,
+    @SerialName("display_order") val displayOrder: Int = 0,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+) {
+    val available: Boolean get() = isActive && !isArchived
+}
+
+@Serializable
 data class Tournament(
     val id: String,
     val slug: String,
@@ -45,6 +61,7 @@ data class Tournament(
     @SerialName("entry_type") val entryType: String = "free",
     @SerialName("entry_fee_paise") val entryFeePaise: Long = 0,
     @SerialName("prize_pool_paise") val prizePoolPaise: Long = 0,
+    @SerialName("per_kill_paise") val perKillPaise: Long = 0,
     @SerialName("max_slots") val maxSlots: Int,
     @SerialName("slots_filled") val slotsFilled: Int = 0,
     @SerialName("min_team_size") val minTeamSize: Int = 1,
@@ -55,13 +72,23 @@ data class Tournament(
     @SerialName("starts_at") val startsAt: String? = null,
     @SerialName("ends_at") val endsAt: String? = null,
     @SerialName("banner_url") val bannerUrl: String? = null,
+    @SerialName("logo_url") val logoUrl: String? = null,
     val description: String = "",
     val map: String? = null,
     val region: String = "IN",
     @SerialName("is_featured") val isFeatured: Boolean = false,
+    @SerialName("category_id") val categoryId: String? = null,
+    @SerialName("game_mode_id") val gameModeId: String? = null,
+    @SerialName("tournament_type_id") val tournamentTypeId: String? = null,
+    val version: String = "1.0",
+    val format: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
+    val category: LookupOption? = null,
+    @SerialName("gameMode") val gameMode: LookupOption? = null,
+    @SerialName("tournamentType") val tournamentType: LookupOption? = null,
 ) {
     val modeLabel: String
-        get() = when (mode) {
+        get() = gameMode?.name?.takeIf { it.isNotBlank() } ?: when (mode) {
             "solo" -> "Solo"
             "duo" -> "Duo"
             "squad" -> "Squad"
@@ -69,8 +96,11 @@ data class Tournament(
             else -> mode.replaceFirstChar { it.uppercase() }
         }
 
+    val categoryLabel: String get() = category?.name ?: "—"
+    val tournamentTypeLabel: String get() = tournamentType?.name ?: if (isFree) "Free Entry" else "Paid Entry"
     val isFree: Boolean get() = entryType == "free" || entryFeePaise == 0L
     val slotsRemaining: Int get() = (maxSlots - slotsFilled).coerceAtLeast(0)
+    val isFull: Boolean get() = slotsFilled >= maxSlots
 }
 
 @Serializable
@@ -97,9 +127,10 @@ data class Registration(
 @Serializable
 data class Match(
     val id: String,
-    @SerialName("tournament_id") val tournamentId: String,
+    @SerialName("tournament_id") val tournamentId: String? = null,
     val round: Int = 1,
     val name: String = "Match",
+    @SerialName("match_number") val matchNumber: String? = null,
     val status: String = "scheduled",
     @SerialName("scheduled_at") val scheduledAt: String,
     @SerialName("check_in_opens_at") val checkInOpensAt: String? = null,
@@ -108,6 +139,57 @@ data class Match(
     val map: String? = null,
     val mode: String? = null,
     @SerialName("max_teams") val maxTeams: Int? = null,
+    val game: String? = null,
+    @SerialName("banner_url") val bannerUrl: String? = null,
+    @SerialName("logo_url") val logoUrl: String? = null,
+    @SerialName("prize_pool_paise") val prizePoolPaise: Long = 0,
+    @SerialName("per_kill_paise") val perKillPaise: Long = 0,
+    @SerialName("entry_fee_paise") val entryFeePaise: Long = 0,
+    val version: String = "1.0",
+    val format: String? = null,
+    @SerialName("max_slots") val maxSlots: Int? = null,
+    @SerialName("slots_filled") val slotsFilled: Int = 0,
+    @SerialName("registration_opens_at") val registrationOpensAt: String? = null,
+    @SerialName("registration_closes_at") val registrationClosesAt: String? = null,
+    @SerialName("is_published") val isPublished: Boolean = false,
+    @SerialName("archived_at") val archivedAt: String? = null,
+    @SerialName("category_id") val categoryId: String? = null,
+    @SerialName("game_mode_id") val gameModeId: String? = null,
+    @SerialName("tournament_type_id") val tournamentTypeId: String? = null,
+    val category: LookupOption? = null,
+    @SerialName("gameMode") val gameMode: LookupOption? = null,
+    @SerialName("tournamentType") val tournamentType: LookupOption? = null,
+) {
+    val slotsRemaining: Int get() = maxSlots?.let { (it - slotsFilled).coerceAtLeast(0) } ?: 0
+    val isFull: Boolean get() = maxSlots != null && slotsFilled >= maxSlots
+    val capacityKnown: Boolean get() = maxSlots != null
+    val modeLabel: String get() = gameMode?.name ?: mode?.replaceFirstChar { it.uppercase() } ?: "—"
+    val categoryLabel: String get() = category?.name ?: "—"
+    val typeLabel: String get() = tournamentType?.name ?: if (entryFeePaise == 0L) "Free Entry" else "Paid Entry"
+}
+
+@Serializable
+data class MatchRegistration(
+    val id: String,
+    @SerialName("match_id") val matchId: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("team_id") val teamId: String? = null,
+    @SerialName("registration_type") val registrationType: String = "solo",
+    val status: String = "confirmed",
+    @SerialName("slot_no") val slotNo: Int? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("cancelled_at") val cancelledAt: String? = null,
+)
+
+@Serializable
+data class AuditLog(
+    val id: String,
+    @SerialName("actor_id") val actorId: String? = null,
+    val action: String,
+    @SerialName("entity_type") val entityType: String,
+    @SerialName("entity_id") val entityId: String? = null,
+    val metadata: kotlinx.serialization.json.JsonElement? = null,
+    @SerialName("created_at") val createdAt: String? = null,
 )
 
 @Serializable

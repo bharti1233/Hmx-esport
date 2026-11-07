@@ -48,6 +48,17 @@ object Routes {
     const val INVITE = "team/{teamId}/invite"
     const val LEGAL = "legal/{kind}"
 
+    // Administration. These destinations are reachable from Settings only when
+    // the server confirms the account holds an admin role; the routes
+    // themselves carry no authority, every write is re-checked by RLS/RPCs.
+    const val ADMIN = "admin"
+    const val ADMIN_LOOKUP = "admin/lookups/{kind}"
+    const val ADMIN_TOURNAMENTS = "admin/tournaments"
+    const val ADMIN_TOURNAMENT_EDIT = "admin/tournaments/{id}"
+    const val ADMIN_MATCHES = "admin/matches"
+    const val ADMIN_MATCH_EDIT = "admin/matches/{id}"
+    const val ADMIN_AUDIT = "admin/audit"
+
     fun tournament(id: String) = "tournament/$id"
     fun tournamentRules(id: String) = "tournament/$id/rules"
     fun tournamentParticipants(id: String) = "tournament/$id/participants"
@@ -64,6 +75,10 @@ object Routes {
     fun invite(teamId: String) = "team/$teamId/invite"
     fun supportTicket(ticketId: String) = "support/ticket/$ticketId"
     fun legal(kind: String) = "legal/$kind"
+
+    fun adminLookup(kind: String) = "admin/lookups/$kind"
+    fun adminTournamentEdit(id: String) = "admin/tournaments/$id"
+    fun adminMatchEdit(id: String) = "admin/matches/$id"
 
     val tabs = setOf(HOME, TOURNAMENTS, MATCHES, LEADERBOARD, PROFILE)
 }

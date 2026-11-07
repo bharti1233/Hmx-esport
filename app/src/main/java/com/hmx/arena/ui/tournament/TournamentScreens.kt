@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -54,6 +56,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.hmx.arena.core.designsystem.GlassButton
 import com.hmx.arena.core.designsystem.GlassButtonVariant
 import com.hmx.arena.core.designsystem.GlassChip
@@ -65,15 +68,11 @@ import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.LocalHmxWindowClass
 import com.hmx.arena.core.designsystem.hmxGridColumns
-import com.hmx.arena.core.model.Match
-import com.hmx.arena.core.model.Participant
 import com.hmx.arena.core.model.Registration
 import com.hmx.arena.core.model.Tournament
-import com.hmx.arena.core.model.TournamentRule
 import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.repository.TournamentFilter
-import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.EmptyBlock
@@ -95,8 +94,6 @@ import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
 import com.hmx.arena.ui.common.HmxGlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -255,9 +252,6 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
 
 data class TournamentDetailData(
     val tournament: Tournament,
-    val rules: List<TournamentRule>,
-    val participants: List<Participant>,
-    val matches: List<Match>,
     val registration: Registration?,
 )
 
@@ -273,7 +267,6 @@ data class TournamentDetailUi(
 @HiltViewModel
 class TournamentDetailViewModel @Inject constructor(
     private val repository: TournamentRepository,
-    private val player: PlayerRepository,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(TournamentDetailUi())
     val ui: StateFlow<TournamentDetailUi> = _ui.asStateFlow()
@@ -284,25 +277,10 @@ class TournamentDetailViewModel @Inject constructor(
             runCatching {
                 val tournament = repository.tournament(id)
                     ?: throw ApiException("This tournament could not be found.")
-                // Rules, participants, matches and the caller's registration
-                // are independent reads; fetch them together.
-                coroutineScope {
-                    val rules = async { runCatching { repository.rules(id) }.getOrDefault(emptyList()) }
-                    val participants = async { runCatching { player.participants(id) }.getOrDefault(emptyList()) }
-                    val matches = async { runCatching { repository.tournamentMatches(id) }.getOrDefault(emptyList()) }
-                    val registration = async {
-                        runCatching { repository.registrations() }
-                            .getOrDefault(emptyList())
-                            .firstOrNull { it.tournamentId == id }
-                    }
-                    TournamentDetailData(
-                        tournament = tournament,
-                        rules = rules.await(),
-                        participants = participants.await(),
-                        matches = matches.await(),
-                        registration = registration.await(),
-                    )
-                }
+                val registration = runCatching {
+                    repository.registrations().firstOrNull { it.tournamentId == id }
+                }.getOrNull()
+                TournamentDetailData(tournament = tournament, registration = registration)
             }
                 .onSuccess { data -> _ui.update { it.copy(loading = false, data = data) } }
                 .onFailure { e -> _ui.update { it.copy(loading = false, error = e.hmxMessage()) } }
@@ -371,13 +349,29 @@ fun TournamentDetailScreen(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 30.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    if (!tournament.bannerUrl.isNullOrBlank()) {
+                        item {
+                            AsyncImage(
+                                model = tournament.bannerUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(HmxShapes.card),
+                            )
+                        }
+                    }
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            StatusPill(Format.tournamentStatusLabel(tournament.status))
+                            StatusPill(
+                                Format.tournamentStatusLabel(tournament.status),
+                                filled = tournament.status == "registration_open",
+                            )
                             Spacer(Modifier.width(6.dp))
                             StatusPill(tournament.modeLabel)
                             Spacer(Modifier.width(6.dp))
-                            StatusPill(if (tournament.isFree) "Free entry" else Format.money(tournament.entryFeePaise))
+                            StatusPill(tournament.categoryLabel)
                         }
                     }
                     item {
@@ -386,8 +380,9 @@ fun TournamentDetailScreen(
                         Text(
                             listOfNotNull(
                                 tournament.game.replace("_", " ").replaceFirstChar { it.uppercase() },
-                                tournament.map,
-                                tournament.region,
+                                tournament.categoryLabel.takeIf { it != "—" },
+                                tournament.modeLabel,
+                                tournament.map?.takeIf { it.isNotBlank() },
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = HmxColor.InkSecondary,
@@ -395,9 +390,19 @@ fun TournamentDetailScreen(
                     }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            DetailStat("Prize pool", if (tournament.prizePoolPaise > 0) Format.money(tournament.prizePoolPaise) else "—", Modifier.weight(1f))
-                            DetailStat("Entry", if (tournament.isFree) "Free" else Format.money(tournament.entryFeePaise), Modifier.weight(1f))
-                            DetailStat("Format", "${tournament.minTeamSize}-${tournament.maxTeamSize}", Modifier.weight(1f))
+                            DetailStat(
+                                "Prize pool",
+                                if (tournament.prizePoolPaise > 0) Format.money(tournament.prizePoolPaise) else "—",
+                                Modifier.weight(1f),
+                            )
+                            DetailStat(
+                                "Entry",
+                                if (tournament.isFree) "Free" else Format.money(tournament.entryFeePaise),
+                                Modifier.weight(1f),
+                            )
+                            if (tournament.perKillPaise > 0) {
+                                DetailStat("Per kill", Format.money(tournament.perKillPaise), Modifier.weight(1f))
+                            }
                         }
                     }
                     item {
@@ -410,14 +415,14 @@ fun TournamentDetailScreen(
                                         color = HmxColor.Ink,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    if (tournament.slotsRemaining > 0) {
+                                    if (tournament.isFull) {
+                                        StatusPill("FULL", filled = true)
+                                    } else {
                                         Text(
                                             "${tournament.slotsRemaining} left",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = HmxColor.InkTertiary,
                                         )
-                                    } else {
-                                        StatusPill("Waitlist", filled = true)
                                     }
                                 }
                                 Spacer(Modifier.height(10.dp))
@@ -431,22 +436,39 @@ fun TournamentDetailScreen(
                                     color = HmxColor.Ink,
                                     trackColor = HmxColor.CanvasTint,
                                 )
-                                Spacer(Modifier.height(12.dp))
+                            }
+                        }
+                    }
+                    item {
+                        GlassSurface(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(HmxDimens.cardPadding)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Starts in", style = MaterialTheme.typography.bodySmall, color = HmxColor.InkSecondary)
-                                    Spacer(Modifier.weight(1f))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "Match date and time",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = HmxColor.InkTertiary,
+                                        )
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(
+                                            Format.dateTime(tournament.startsAt),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = HmxColor.Ink,
+                                        )
+                                    }
                                     TickingCountdown(tournament.startsAt)
+                                }
+                                if (tournament.registrationClosesAt != null) {
+                                    Spacer(Modifier.height(8.dp))
+                                    KeyValueRow("Registration closes", Format.dateTime(tournament.registrationClosesAt))
                                 }
                             }
                         }
                     }
-                    if (ui.message != null) {
-                        item { InlineSuccess(ui.message!!) }
-                    }
-                    if (ui.actionError != null) {
-                        item { InlineError(ui.actionError!!) }
-                    }
-                    if (data.registration != null) {
+                    if (ui.message != null) item { InlineSuccess(ui.message!!) }
+                    if (ui.actionError != null) item { InlineError(ui.actionError!!) }
+                    val myRegistration = data.registration
+                    if (myRegistration != null) {
                         item {
                             GlassSurface(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(HmxDimens.cardPadding)) {
@@ -465,12 +487,13 @@ fun TournamentDetailScreen(
                                         Spacer(Modifier.width(10.dp))
                                         Column(Modifier.weight(1f)) {
                                             Text(
-                                                if (data.registration.status == "waitlisted") "You are on the waitlist" else "You are registered",
+                                                if (myRegistration.status == "waitlisted") "You are on the waitlist" else "You are registered",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 color = HmxColor.Ink,
                                             )
                                             Text(
-                                                data.registration.slotNo?.let { "Slot #$it" } ?: data.registration.status.replaceFirstChar { it.uppercase() },
+                                                myRegistration.slotNo?.let { "Slot #$it" }
+                                                    ?: myRegistration.status.replaceFirstChar { it.uppercase() },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = HmxColor.InkSecondary,
                                             )
@@ -478,8 +501,8 @@ fun TournamentDetailScreen(
                                     }
                                     Spacer(Modifier.height(12.dp))
                                     GlassButton(
-                                        text = "Cancel registration",
-                                        onClick = { confirmCancel = data.registration.id },
+                                        text = if (ui.busy) "Cancelling…" else "Cancel registration",
+                                        onClick = { confirmCancel = myRegistration.id },
                                         variant = GlassButtonVariant.Secondary,
                                         enabled = !ui.busy,
                                     )
@@ -489,14 +512,14 @@ fun TournamentDetailScreen(
                     } else if (tournament.status == "registration_open") {
                         item {
                             GlassButton(
-                                text = if (tournament.slotsRemaining > 0) "Register now" else "Join the waitlist",
+                                text = if (tournament.isFull) "Join the waitlist" else "Register now",
                                 onClick = { nav.navigate(Routes.tournamentRegister(tournament.id)) },
                                 variant = GlassButtonVariant.Ink,
                             )
                         }
                         item {
                             InlineNotice(
-                                "Registration is atomic: your slot is confirmed by the server. Eligibility and team size are checked automatically.",
+                                "Registration is confirmed by the server. Eligibility and team size are checked automatically.",
                             )
                         }
                     } else {
@@ -504,109 +527,11 @@ fun TournamentDetailScreen(
                             InlineNotice(
                                 when (tournament.status) {
                                     "live" -> "This tournament is live. Room details are in your match list."
-                                    "completed" -> "This tournament has ended. Final standings are on the leaderboard."
+                                    "completed" -> "This tournament has ended."
                                     "cancelled" -> "This tournament was cancelled."
                                     else -> "Registration is not open for this tournament."
                                 },
                             )
-                        }
-                    }
-                    item {
-                        GlassSurface(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(vertical = 6.dp)) {
-                                ActionLine("Tournament rules", Icons.Rounded.List) {
-                                    nav.navigate(Routes.tournamentRules(tournament.id))
-                                }
-                                ActionLine("Participants (${data.participants.size})", Icons.Rounded.SportsEsports) {
-                                    nav.navigate(Routes.tournamentParticipants(tournament.id))
-                                }
-                                ActionLine("Match schedule (${data.matches.size})", Icons.Rounded.EmojiEvents) {
-                                    nav.navigate(Routes.tournamentSchedule(tournament.id))
-                                }
-                                ActionLine("Tournament leaderboard", Icons.Rounded.Leaderboard) {
-                                    nav.navigate(Routes.tournamentLeaderboard(tournament.id))
-                                }
-                            }
-                        }
-                    }
-                    if (tournament.description.isNotBlank()) {
-                        item {
-                            GlassSectionHeader("About")
-                            GlassSurface(Modifier.fillMaxWidth()) {
-                                Text(
-                                    tournament.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = HmxColor.InkSecondary,
-                                    modifier = Modifier.padding(HmxDimens.cardPadding),
-                                )
-                            }
-                        }
-                    }
-                    item { GlassSectionHeader("Schedule") }
-                    item {
-                        GlassSurface(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(HmxDimens.cardPadding)) {
-                                KeyValueRow("Registration opens", Format.dateTime(tournament.registrationOpensAt))
-                                KeyValueRow("Registration closes", Format.dateTime(tournament.registrationClosesAt))
-                                KeyValueRow("Starts", Format.dateTime(tournament.startsAt))
-                                if (tournament.endsAt != null) {
-                                    KeyValueRow("Ends", Format.dateTime(tournament.endsAt))
-                                }
-                            }
-                        }
-                    }
-                    if (data.rules.isNotEmpty()) {
-                        item {
-                            GlassSectionHeader(
-                                "Rules",
-                                action = "All ${data.rules.size}",
-                                onAction = { nav.navigate(Routes.tournamentRules(tournament.id)) },
-                            )
-                        }
-                        items(data.rules.take(3), key = { it.id }) { rule ->
-                            GlassSurface(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        "${rule.position}. ${rule.title}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = HmxColor.Ink,
-                                    )
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(
-                                        rule.body,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = HmxColor.InkSecondary,
-                                        maxLines = 3,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (data.participants.isNotEmpty()) {
-                        item {
-                            GlassSectionHeader(
-                                "Registered players",
-                                action = "See all",
-                                onAction = { nav.navigate(Routes.tournamentParticipants(tournament.id)) },
-                            )
-                        }
-                        item {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                items(data.participants.take(10), key = { it.registrationId }) { participant ->
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-                                        GlassAvatar(participant.avatarUrl, participant.ign, 46.dp)
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(
-                                            participant.ign,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = HmxColor.InkSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }

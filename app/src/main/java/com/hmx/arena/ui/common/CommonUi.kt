@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -642,6 +644,183 @@ fun MatchCard(
                 Icon(Icons.Rounded.ArrowForward, contentDescription = null, tint = HmxColor.Ink, modifier = Modifier.size(16.dp))
             }
         }
+    }
+}
+
+@Composable
+fun MatchFeedCard(
+    match: Match,
+    tournamentTitle: String?,
+    registered: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    GlassSurface(
+        modifier = modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
+    ) {
+        Column {
+            // The banner is a true 16:9 canvas; the logo is a separate 1:1
+            // badge so neither image is cropped to the other's ratio.
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                if (!match.bannerUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = match.bannerUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(
+                        Modifier.fillMaxSize().background(HmxColor.CanvasTint),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.EmojiEvents,
+                            contentDescription = null,
+                            tint = HmxColor.InkTertiary,
+                            modifier = Modifier.size(34.dp),
+                        )
+                    }
+                }
+                if (match.isFull) {
+                    Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) {
+                        StatusPill("MATCH FULL", filled = true)
+                    }
+                }
+                if (registered) {
+                    Box(Modifier.align(Alignment.TopStart).padding(10.dp)) {
+                        StatusPill("Registered", filled = true)
+                    }
+                }
+                if (!match.logoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = match.logoUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp)
+                            .size(58.dp)
+                            .clip(HmxShapes.field)
+                            .background(HmxColor.CanvasTint),
+                    )
+                }
+            }
+            Column(Modifier.padding(HmxDimens.cardPadding)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        match.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = HmxColor.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    StatusPill(match.status.replaceFirstChar { it.uppercase() })
+                }
+                if (!tournamentTitle.isNullOrBlank()) {
+                    Text(
+                        tournamentTitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = HmxColor.InkTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    listOfNotNull(
+                        match.categoryLabel.takeIf { it != "—" },
+                        match.modeLabel.takeIf { it != "—" },
+                        match.typeLabel,
+                        match.map?.takeIf { it.isNotBlank() },
+                        match.format?.takeIf { it.isNotBlank() },
+                        "v${match.version}",
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HmxColor.InkSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MatchRewardCell(
+                        "Prize pool",
+                        if (match.prizePoolPaise > 0) Format.money(match.prizePoolPaise) else "—",
+                        Modifier.weight(1f),
+                    )
+                    MatchRewardCell(
+                        "Per kill",
+                        if (match.perKillPaise > 0) Format.money(match.perKillPaise) else "—",
+                        Modifier.weight(1f),
+                    )
+                    MatchRewardCell(
+                        "Entry",
+                        if (match.entryFeePaise > 0) Format.money(match.entryFeePaise) else "Free",
+                        Modifier.weight(1f),
+                    )
+                }
+                if (match.capacityKnown) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${match.slotsFilled} of ${match.maxSlots} slots",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = HmxColor.InkSecondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            if (match.isFull) "Full" else "${match.slotsRemaining} left",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = HmxColor.InkTertiary,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = {
+                            match.maxSlots?.let {
+                                (match.slotsFilled.toFloat() / it).coerceIn(0f, 1f)
+                            } ?: 0f
+                        },
+                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                        color = HmxColor.Ink,
+                        trackColor = HmxColor.CanvasTint,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        Format.dateTime(match.scheduledAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HmxColor.InkTertiary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TickingCountdown(match.scheduledAt)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Rounded.ArrowForward,
+                        contentDescription = null,
+                        tint = HmxColor.Ink,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchRewardCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .clip(HmxShapes.field)
+            .background(HmxColor.GlassMuted)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Text(value, style = MaterialTheme.typography.titleSmall, color = HmxColor.Ink)
+        Spacer(Modifier.height(1.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = HmxColor.InkTertiary)
     }
 }
 
