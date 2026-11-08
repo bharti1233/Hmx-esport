@@ -27,7 +27,7 @@ import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.Globe
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Refresh
@@ -419,7 +419,7 @@ private fun HomeHeader(
                     )
                 }
                 GlassIconButton(
-                    icon = Icons.Rounded.Globe,
+                    icon = Icons.Rounded.Language,
                     contentDescription = "Search players and tournaments",
                     onClick = { nav.navigate(Routes.SEARCH) },
                 )
