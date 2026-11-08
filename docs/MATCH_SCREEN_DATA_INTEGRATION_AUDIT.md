@@ -242,11 +242,15 @@ silently reintroduce a draft or cancelled row.
 
 ## 7. Build and CI verification
 
+CI run: [`42458973236`](https://github.com/bharti1233/Hmx-esport/actions/runs/42458973236)
+on `7bb868f` (contains integration commit `183f94b`), conclusion **success**.
+
 | Check | Environment | Status |
 | --- | --- | --- |
-| `:app:testDebugUnitTest` | GitHub Actions, JDK 17 | Recorded in the CI run for this branch |
-| `:app:lintDebug` | GitHub Actions, JDK 17 | Recorded in the CI run for this branch |
-| `:app:assembleDebug` | GitHub Actions, JDK 17 | Recorded in the CI run for this branch |
+| `:app:testDebugUnitTest` | GitHub Actions, JDK 17 | **Passed** |
+| `:app:lintDebug` | GitHub Actions, JDK 17 | **Passed** |
+| `:app:assembleDebug` | GitHub Actions, JDK 17 | **Passed** |
+| Debug APK upload | GitHub Actions | **Passed** |
 | Device/emulator UI | Not available in this environment | Static review + CI only |
 
 Local compilation was not possible because this environment has no Android SDK
