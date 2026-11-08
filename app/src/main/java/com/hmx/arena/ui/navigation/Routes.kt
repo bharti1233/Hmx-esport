@@ -26,6 +26,7 @@ object Routes {
     const val EDIT_PROFILE = "edit-profile"
     const val GAME_ACCOUNTS = "game-accounts"
     const val COMPLETE_PROFILE = "complete-profile"
+    const val MY_MATCHES = "my-matches"
     const val MY_REGISTRATIONS = "my-registrations"
     const val TEAM = "team"
     const val CREATE_TEAM = "create-team"

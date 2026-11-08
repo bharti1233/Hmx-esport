@@ -25,9 +25,11 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.List
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SportsEsports
@@ -68,6 +70,7 @@ import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.LocalHmxWindowClass
 import com.hmx.arena.core.designsystem.hmxGridColumns
+import com.hmx.arena.core.model.LookupOption
 import com.hmx.arena.core.model.Registration
 import com.hmx.arena.core.model.Tournament
 import com.hmx.arena.core.util.Format
@@ -94,6 +97,8 @@ import com.hmx.arena.ui.navigation.Routes
 import com.hmx.arena.ui.navigation.openTab
 import com.hmx.arena.ui.common.HmxGlassBottomBar
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -103,8 +108,11 @@ import javax.inject.Inject
 
 data class TournamentsUi(
     val query: String = "",
-    val mode: String? = null,
+    val categoryId: String? = null,
+    val gameModeId: String? = null,
     val freeOnly: Boolean = false,
+    val categories: List<LookupOption> = emptyList(),
+    val gameModes: List<LookupOption> = emptyList(),
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val items: List<Tournament> = emptyList(),
@@ -122,8 +130,13 @@ class TournamentsViewModel @Inject constructor(
 
     fun setQuery(value: String) = _ui.update { it.copy(query = value) }
 
-    fun setMode(mode: String?) {
-        _ui.update { it.copy(mode = mode) }
+    fun setCategory(categoryId: String?) {
+        _ui.update { it.copy(categoryId = categoryId) }
+        load()
+    }
+
+    fun setGameMode(gameModeId: String?) {
+        _ui.update { it.copy(gameModeId = gameModeId) }
         load()
     }
 
@@ -137,16 +150,40 @@ class TournamentsViewModel @Inject constructor(
         viewModelScope.launch {
             _ui.update { it.copy(loading = it.items.isEmpty(), refreshing = true, error = null) }
             runCatching {
-                repository.tournaments(
-                    TournamentFilter(
-                        query = current.query,
-                        mode = current.mode,
-                        freeOnly = current.freeOnly,
-                    ),
-                )
+                coroutineScope {
+                    // Lookup failures must not blank the Arena; keep the last
+                    // known chips and still show the tournament feed.
+                    val categories = async {
+                        runCatching { repository.categories() }
+                            .getOrDefault(current.categories)
+                    }
+                    val gameModes = async {
+                        runCatching { repository.gameModes() }
+                            .getOrDefault(current.gameModes)
+                    }
+                    val items = async {
+                        repository.tournaments(
+                            TournamentFilter(
+                                query = current.query,
+                                categoryId = current.categoryId,
+                                gameModeId = current.gameModeId,
+                                freeOnly = current.freeOnly,
+                            ),
+                        )
+                    }
+                    Triple(categories.await(), gameModes.await(), items.await())
+                }
             }
-                .onSuccess { list ->
-                    _ui.update { it.copy(loading = false, refreshing = false, items = list) }
+                .onSuccess { (categories, gameModes, list) ->
+                    _ui.update {
+                        it.copy(
+                            loading = false,
+                            refreshing = false,
+                            categories = categories,
+                            gameModes = gameModes,
+                            items = list,
+                        )
+                    }
                 }
                 .onFailure { e ->
                     _ui.update { it.copy(loading = false, refreshing = false, error = e.hmxMessage()) }
@@ -192,11 +229,30 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { GlassChip("All modes", ui.mode == null) { viewModel.setMode(null) } }
-                    item { GlassChip("Solo", ui.mode == "solo") { viewModel.setMode("solo") } }
-                    item { GlassChip("Duo", ui.mode == "duo") { viewModel.setMode("duo") } }
-                    item { GlassChip("Squad", ui.mode == "squad") { viewModel.setMode("squad") } }
-                    item { GlassChip("Clash Squad", ui.mode == "clash_squad") { viewModel.setMode("clash_squad") } }
+                    item {
+                        GlassChip("All categories", ui.categoryId == null) {
+                            viewModel.setCategory(null)
+                        }
+                    }
+                    items(ui.categories, key = { it.id }) { category ->
+                        GlassChip(category.name, ui.categoryId == category.id) {
+                            viewModel.setCategory(category.id)
+                        }
+                    }
+                }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        GlassChip("All modes", ui.gameModeId == null) {
+                            viewModel.setGameMode(null)
+                        }
+                    }
+                    items(ui.gameModes, key = { it.id }) { mode ->
+                        GlassChip(mode.name, ui.gameModeId == mode.id) {
+                            viewModel.setGameMode(mode.id)
+                        }
+                    }
                     item { GlassChip("Free entry", ui.freeOnly) { viewModel.toggleFree() } }
                 }
             }
@@ -207,6 +263,15 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                         style = MaterialTheme.typography.labelMedium,
                         color = HmxColor.InkTertiary,
                         modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "My matches",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = HmxColor.Ink,
+                        modifier = Modifier
+                            .clip(HmxShapes.pill)
+                            .clickable { nav.navigate(Routes.MY_MATCHES) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                     Text(
                         "My registrations",
@@ -236,7 +301,8 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                         actionLabel = "Clear filters",
                         onAction = {
                             viewModel.setQuery("")
-                            viewModel.setMode(null)
+                            viewModel.setCategory(null)
+                            viewModel.setGameMode(null)
                             if (ui.freeOnly) viewModel.toggleFree()
                             viewModel.load()
                         },
@@ -278,7 +344,10 @@ class TournamentDetailViewModel @Inject constructor(
                 val tournament = repository.tournament(id)
                     ?: throw ApiException("This tournament could not be found.")
                 val registration = runCatching {
-                    repository.registrations().firstOrNull { it.tournamentId == id }
+                    repository.registrations().firstOrNull {
+                        it.tournamentId == id &&
+                            (it.status == "confirmed" || it.status == "waitlisted")
+                    }
                 }.getOrNull()
                 TournamentDetailData(tournament = tournament, registration = registration)
             }
@@ -319,6 +388,11 @@ fun TournamentDetailScreen(
         title = "Tournament",
         onBack = { nav.popBackStack() },
         actions = {
+            GlassIconButton(
+                icon = Icons.Rounded.Refresh,
+                contentDescription = "Refresh tournament",
+                onClick = { viewModel.load(id) },
+            )
             val data = ui.data
             if (data != null) {
                 GlassIconButton(
@@ -375,18 +449,41 @@ fun TournamentDetailScreen(
                         }
                     }
                     item {
-                        Text(tournament.title, style = MaterialTheme.typography.headlineLarge, color = HmxColor.Ink)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            listOfNotNull(
-                                tournament.game.replace("_", " ").replaceFirstChar { it.uppercase() },
-                                tournament.categoryLabel.takeIf { it != "—" },
-                                tournament.modeLabel,
-                                tournament.map?.takeIf { it.isNotBlank() },
-                            ).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = HmxColor.InkSecondary,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!tournament.logoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = tournament.logoUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(58.dp)
+                                        .clip(HmxShapes.field)
+                                        .background(HmxColor.CanvasTint),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    tournament.title,
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = HmxColor.Ink,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    listOfNotNull(
+                                        tournament.game.replace("_", " ").replaceFirstChar { it.uppercase() },
+                                        tournament.categoryLabel.takeIf { it != "—" },
+                                        tournament.modeLabel,
+                                        tournament.tournamentTypeLabel,
+                                        tournament.map?.takeIf { it.isNotBlank() },
+                                        tournament.format?.takeIf { it.isNotBlank() },
+                                        "v${tournament.version}",
+                                    ).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = HmxColor.InkSecondary,
+                                )
+                            }
+                        }
                     }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -463,6 +560,27 @@ fun TournamentDetailScreen(
                                     KeyValueRow("Registration closes", Format.dateTime(tournament.registrationClosesAt))
                                 }
                             }
+                        }
+                    }
+                    item { GlassSectionHeader("Tournament hub") }
+                    item {
+                        ActionLine("Match schedule", Icons.Rounded.CalendarMonth) {
+                            nav.navigate(Routes.tournamentSchedule(tournament.id))
+                        }
+                    }
+                    item {
+                        ActionLine("Participants", Icons.Rounded.SportsEsports) {
+                            nav.navigate(Routes.tournamentParticipants(tournament.id))
+                        }
+                    }
+                    item {
+                        ActionLine("Rules", Icons.Rounded.List) {
+                            nav.navigate(Routes.tournamentRules(tournament.id))
+                        }
+                    }
+                    item {
+                        ActionLine("Leaderboard", Icons.Rounded.Leaderboard) {
+                            nav.navigate(Routes.tournamentLeaderboard(tournament.id))
                         }
                     }
                     if (ui.message != null) item { InlineSuccess(ui.message!!) }

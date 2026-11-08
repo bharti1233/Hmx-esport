@@ -63,7 +63,6 @@ import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.MatchCredentials
 import com.hmx.arena.core.model.MatchRegistration
 import com.hmx.arena.core.model.MatchResult
-import com.hmx.arena.core.model.Registration
 import com.hmx.arena.core.model.Tournament
 import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.remote.ApiException
@@ -71,6 +70,7 @@ import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.repository.MatchFeedItem
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
+import com.hmx.arena.data.repository.groupMatchFeed
 import com.hmx.arena.ui.common.CopyRow
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassTextField
@@ -141,10 +141,11 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
         },
         bottomBar = { HmxGlassBottomBar(Routes.MATCHES) { nav.openTab(it) } },
     ) {
+        val groups = groupMatchFeed(ui.items)
         when {
-            ui.loading && ui.items.isEmpty() -> LoadingBlock("Loading your matches")
+            ui.loading && ui.items.isEmpty() -> LoadingBlock("Loading matches")
             ui.error != null && ui.items.isEmpty() -> InlineError(ui.error!!, onRetry = viewModel::load)
-            ui.items.isEmpty() -> EmptyBlock(
+            groups.isEmpty() -> EmptyBlock(
                 title = "No matches scheduled",
                 message = "Published matches appear here as soon as the admin team schedules them.",
                 icon = Icons.Rounded.SportsEsports,
@@ -159,29 +160,33 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "${ui.items.size} available",
+                            "${ui.items.size} published",
                             style = MaterialTheme.typography.labelMedium,
                             color = HmxColor.InkTertiary,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            "My registrations",
+                            "My matches",
                             style = MaterialTheme.typography.labelMedium,
                             color = HmxColor.Ink,
                             modifier = Modifier
-                                .clickable { nav.navigate(Routes.MY_REGISTRATIONS) }
+                                .clickable { nav.navigate(Routes.MY_MATCHES) }
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         )
                     }
                 }
-                items(ui.items, key = { it.match.id }) { entry ->
-                    MatchFeedCard(
-                        match = entry.match,
-                        tournamentTitle = entry.tournament?.title,
-                        registered = entry.matchRegistration != null ||
-                            entry.tournamentRegistration != null,
-                        onClick = { nav.navigate(Routes.match(entry.match.id)) },
-                    )
+                groups.forEach { group ->
+                    item(key = "section-${group.section.name}") {
+                        GlassSectionHeader("${group.section.label} · ${group.items.size}")
+                    }
+                    items(group.items, key = { it.match.id }) { entry ->
+                        MatchFeedCard(
+                            match = entry.match,
+                            tournamentTitle = entry.tournament?.title,
+                            registered = entry.registered,
+                            onClick = { nav.navigate(Routes.match(entry.match.id)) },
+                        )
+                    }
                 }
             }
         }
@@ -191,14 +196,14 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
 data class MatchDetailData(
     val match: Match,
     val tournament: Tournament?,
-    val tournamentRegistration: Registration?,
     val matchRegistration: MatchRegistration?,
     val credentials: MatchCredentials?,
     val results: List<MatchResult>,
     val myResult: MatchResult?,
 ) {
+    /** Only a match slot grants match-level access, never a tournament registration. */
     val registered: Boolean
-        get() = matchRegistration != null || tournamentRegistration != null
+        get() = matchRegistration != null
 }
 
 data class MatchDetailUi(
@@ -228,15 +233,9 @@ class MatchDetailViewModel @Inject constructor(
                 val tournament = match.tournamentId?.let {
                     runCatching { repository.tournament(it) }.getOrNull()
                 }
-                val tournamentRegistration = match.tournamentId?.let { tid ->
-                    runCatching {
-                        repository.registrations().firstOrNull { it.tournamentId == tid }
-                    }.getOrNull()
-                }
                 MatchDetailData(
                     match = match,
                     tournament = tournament,
-                    tournamentRegistration = tournamentRegistration,
                     matchRegistration = runCatching {
                         repository.myMatchRegistrations().firstOrNull { it.matchId == id }
                     }.getOrNull(),
@@ -282,7 +281,20 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
 
-    HmxPage(title = "Match", onBack = { nav.popBackStack() }) {
+    HmxPage(
+        title = "Match",
+        onBack = { nav.popBackStack() },
+        actions = {
+            Text(
+                "Refresh",
+                style = MaterialTheme.typography.labelMedium,
+                color = HmxColor.Ink,
+                modifier = Modifier
+                    .clickable { viewModel.load(id) }
+                    .padding(10.dp),
+            )
+        },
+    ) {
         when {
             ui.loading && ui.data == null -> LoadingBlock("Loading match")
             ui.error != null && ui.data == null -> InlineError(ui.error!!, onRetry = { viewModel.load(id) })
@@ -352,7 +364,14 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
                             TickingCountdown(match.scheduledAt)
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text(match.name, style = MaterialTheme.typography.headlineMedium, color = HmxColor.Ink)
+                        Text(
+                            listOfNotNull(
+                                match.name,
+                                match.matchNumber?.takeIf { it.isNotBlank() }?.let { "#$it" },
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = HmxColor.Ink,
+                        )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             tournament?.title ?: "Independent match",
@@ -374,12 +393,15 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
                     item {
                         GlassSurface(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(HmxDimens.cardPadding)) {
+                                KeyValueRow("Match number", match.matchNumber ?: "—")
+                                KeyValueRow("Category", match.categoryLabel)
+                                KeyValueRow("Game mode", match.modeLabel)
+                                KeyValueRow("Type", match.typeLabel)
                                 KeyValueRow("Scheduled", Format.dateTime(match.scheduledAt))
                                 KeyValueRow("Check-in opens", Format.dateTime(match.checkInOpensAt))
                                 KeyValueRow("Map", match.map ?: "TBD")
-                                KeyValueRow("Mode", match.modeLabel)
                                 KeyValueRow("Format", match.format ?: "—")
-                                KeyValueRow("Version", match.version)
+                                KeyValueRow("Version", "v${match.version}")
                                 KeyValueRow("Room", if (match.status == "live") "Released" else "Locked")
                             }
                         }
@@ -445,8 +467,12 @@ fun MatchDetailScreen(nav: NavHostController, id: String, viewModel: MatchDetail
                                 val myMatchRegistration = data.matchRegistration
                                 if (myMatchRegistration != null) {
                                     Text(
-                                        "Your match slot is confirmed" +
-                                            (myMatchRegistration.slotNo?.let { " (slot #$it)" } ?: "") + ".",
+                                        if (myMatchRegistration.status == "waitlisted") {
+                                            "You are on the match waitlist."
+                                        } else {
+                                            "Your match slot is confirmed" +
+                                                (myMatchRegistration.slotNo?.let { " (slot #$it)" } ?: "") + "."
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = HmxColor.InkSecondary,
                                     )

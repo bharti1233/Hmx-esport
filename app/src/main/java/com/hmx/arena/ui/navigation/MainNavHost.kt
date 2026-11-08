@@ -24,6 +24,7 @@ import com.hmx.arena.ui.match.MatchCredentialsScreen
 import com.hmx.arena.ui.match.MatchDetailScreen
 import com.hmx.arena.ui.match.MatchResultsScreen
 import com.hmx.arena.ui.match.MatchesScreen
+import com.hmx.arena.ui.match.MyMatchesScreen
 import com.hmx.arena.ui.match.SubmitResultScreen
 import com.hmx.arena.ui.onboarding.CompleteProfileScreen
 import com.hmx.arena.ui.profile.EditProfileScreen
@@ -140,6 +141,7 @@ private fun androidx.navigation.NavGraphBuilder.tournamentDestinations(nav: NavH
 }
 
 private fun androidx.navigation.NavGraphBuilder.matchDestinations(nav: NavHostController) {
+    composable(Routes.MY_MATCHES) { MyMatchesScreen(nav) }
     composable(Routes.MATCH) { entry ->
         MatchDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
     }

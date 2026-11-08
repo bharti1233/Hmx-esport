@@ -625,11 +625,20 @@ fun MatchCard(
                 StatusPill(match.status.replaceFirstChar { it.uppercase() })
             }
             Spacer(Modifier.height(8.dp))
-            Text(match.name, style = MaterialTheme.typography.titleLarge, color = HmxColor.Ink)
+            Text(
+                listOfNotNull(
+                    match.name,
+                    match.matchNumber?.takeIf { it.isNotBlank() }?.let { "#$it" },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.titleLarge,
+                color = HmxColor.Ink,
+            )
             Spacer(Modifier.height(2.dp))
             Text(
                 listOfNotNull(
                     Format.dateTime(match.scheduledAt),
+                    match.categoryLabel.takeIf { it != "—" },
+                    match.modeLabel.takeIf { it != "—" },
                     match.map?.takeIf { it.isNotBlank() },
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,

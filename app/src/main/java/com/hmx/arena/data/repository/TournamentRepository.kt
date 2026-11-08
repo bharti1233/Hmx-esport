@@ -1,6 +1,7 @@
 package com.hmx.arena.data.repository
 
 import com.hmx.arena.core.model.LeaderboardRow
+import com.hmx.arena.core.model.LookupOption
 import com.hmx.arena.core.model.Match
 import com.hmx.arena.core.model.MatchCredentials
 import com.hmx.arena.core.model.MatchRegistration
@@ -14,8 +15,6 @@ import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.remote.SupabaseConfig
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -25,31 +24,64 @@ import javax.inject.Singleton
 
 data class TournamentFilter(
     val query: String = "",
-    val mode: String? = null,
+    val categoryId: String? = null,
+    val gameModeId: String? = null,
     val freeOnly: Boolean = false,
     val status: String? = null,
-)
-
-data class MyMatch(
-    val match: Match,
-    val tournament: Tournament,
-    val registration: Registration,
 )
 
 data class MatchFeedItem(
     val match: Match,
     val tournament: Tournament? = null,
     val matchRegistration: MatchRegistration? = null,
-    val tournamentRegistration: Registration? = null,
-)
+) {
+    /** Public match eligibility never depends on a tournament registration. */
+    val registered: Boolean get() = matchRegistration != null
+}
 
 private const val LOOKUP_EMBED =
     "category:categories(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
         "gameMode:game_modes(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
         "tournamentType:tournament_types(id,slug,name,description,logo_url,is_active,is_archived,display_order)"
 
+private const val LOOKUP_COLUMNS =
+    "id,slug,name,description,logo_url,is_active,is_archived,display_order"
+
 private const val TOURNAMENT_COLUMNS = "*,$LOOKUP_EMBED"
 private const val MATCH_COLUMNS = "*,$LOOKUP_EMBED"
+
+/**
+ * Published tournament catalogue. Draft visibility is additionally enforced by
+ * RLS; these filters make the intended public feed explicit and keep cancelled
+ * or archived events out of Arena even when a cached row exists.
+ */
+internal fun tournamentQueryParams(filter: TournamentFilter = TournamentFilter()): Map<String, String> {
+    val params = mutableMapOf(
+        "status" to (filter.status?.let { "eq.$it" } ?: "not.in.(cancelled)"),
+        "archived_at" to "is.null",
+        "order" to "is_featured.desc,starts_at.asc",
+        "limit" to "60",
+        "select" to TOURNAMENT_COLUMNS,
+    )
+    filter.categoryId?.let { params["category_id"] = "eq.$it" }
+    filter.gameModeId?.let { params["game_mode_id"] = "eq.$it" }
+    if (filter.freeOnly) params["entry_type"] = "eq.free"
+    if (filter.query.isNotBlank()) {
+        val q = filter.query.trim().replace("(", "").replace(")", "").replace(",", " ")
+        params["or"] = "(title.ilike.*$q*,description.ilike.*$q*)"
+    }
+    return params
+}
+
+/** Public match collection: published, not archived and not cancelled. */
+internal fun publishedMatchQueryParams(limit: Int = 60): Map<String, String> = mapOf(
+    "is_published" to "eq.true",
+    "archived_at" to "is.null",
+    "status" to "neq.cancelled",
+    "order" to "scheduled_at.asc",
+    "limit" to limit.toString(),
+    "select" to MATCH_COLUMNS,
+)
 
 @Singleton
 class TournamentRepository @Inject constructor(
@@ -59,8 +91,8 @@ class TournamentRepository @Inject constructor(
     private val json: Json,
 ) {
     suspend fun tournaments(filter: TournamentFilter = TournamentFilter()): List<Tournament> {
-        val cacheable = filter.query.isBlank() && filter.mode == null &&
-            !filter.freeOnly && filter.status == null
+        val cacheable = filter.query.isBlank() && filter.categoryId == null &&
+            filter.gameModeId == null && !filter.freeOnly && filter.status == null
         return try {
             val items = fetchTournaments(filter)
             if (cacheable) cacheCatalogue(items)
@@ -70,22 +102,33 @@ class TournamentRepository @Inject constructor(
         }
     }
 
-    private suspend fun fetchTournaments(filter: TournamentFilter): List<Tournament> {
-        val params = mutableMapOf(
-            "status" to "neq.draft",
-            "order" to "is_featured.desc,starts_at.asc",
-            "limit" to "60",
-            "select" to TOURNAMENT_COLUMNS,
-        )
-        if (filter.status != null) params["status"] = "eq.${filter.status}"
-        if (filter.mode != null) params["mode"] = "eq.${filter.mode}"
-        if (filter.freeOnly) params["entry_type"] = "eq.free"
-        if (filter.query.isNotBlank()) {
-            val q = filter.query.trim().replace("(", "").replace(")", "").replace(",", " ")
-            params["or"] = "(title.ilike.*$q*,description.ilike.*$q*)"
-        }
-        return remote.select("tournaments", params, Tournament.serializer())
-    }
+    private suspend fun fetchTournaments(filter: TournamentFilter): List<Tournament> =
+        remote.select("tournaments", tournamentQueryParams(filter), Tournament.serializer())
+
+    /** Dynamic Arena filters. Archived rows stay readable through the embed but are not offered. */
+    suspend fun categories(): List<LookupOption> = remote.select(
+        "categories",
+        mapOf(
+            "select" to LOOKUP_COLUMNS,
+            "is_active" to "eq.true",
+            "is_archived" to "eq.false",
+            "order" to "display_order.asc,name.asc",
+            "limit" to "100",
+        ),
+        LookupOption.serializer(),
+    )
+
+    suspend fun gameModes(): List<LookupOption> = remote.select(
+        "game_modes",
+        mapOf(
+            "select" to LOOKUP_COLUMNS,
+            "is_active" to "eq.true",
+            "is_archived" to "eq.false",
+            "order" to "display_order.asc,name.asc",
+            "limit" to "100",
+        ),
+        LookupOption.serializer(),
+    )
 
     private suspend fun cacheCatalogue(items: List<Tournament>) = runCatching {
         val dao = cache.tournaments()
@@ -101,14 +144,15 @@ class TournamentRepository @Inject constructor(
     private suspend fun cachedCatalogue(): List<Tournament> = runCatching {
         cache.tournaments().all().mapNotNull {
             runCatching { json.decodeFromString(Tournament.serializer(), it.payload) }.getOrNull()
-        }
+        }.filter { it.status != "cancelled" && it.archivedAt == null }
     }.getOrDefault(emptyList())
 
     suspend fun featured(): List<Tournament> = remote.select(
         "tournaments",
         mapOf(
             "is_featured" to "eq.true",
-            "status" to "neq.draft",
+            "status" to "not.in.(cancelled)",
+            "archived_at" to "is.null",
             "order" to "starts_at.asc",
             "limit" to "5",
             "select" to TOURNAMENT_COLUMNS,
@@ -167,6 +211,9 @@ class TournamentRepository @Inject constructor(
         "matches",
         mapOf(
             "tournament_id" to "eq.$tournamentId",
+            "is_published" to "eq.true",
+            "archived_at" to "is.null",
+            "status" to "neq.cancelled",
             "order" to "scheduled_at.asc",
             "select" to MATCH_COLUMNS,
         ),
@@ -174,37 +221,71 @@ class TournamentRepository @Inject constructor(
     )
 
     /** Every published match is independently registerable, with or without a tournament. */
-    suspend fun publishedMatches(limit: Int = 60): List<Match> = remote.select(
-        "matches",
-        mapOf(
-            "is_published" to "eq.true",
-            "archived_at" to "is.null",
-            "status" to "neq.cancelled",
-            "order" to "scheduled_at.asc",
-            "limit" to limit.toString(),
-            "select" to MATCH_COLUMNS,
-        ),
-        Match.serializer(),
-    )
+    suspend fun publishedMatches(limit: Int = 60): List<Match> =
+        remote.select("matches", publishedMatchQueryParams(limit), Match.serializer())
 
+    /**
+     * Public feed. `registered` is derived exclusively from match_registrations;
+     * a tournament registration never implies a match slot.
+     */
     suspend fun matchFeed(): List<MatchFeedItem> {
         val matches = publishedMatches()
         if (matches.isEmpty()) return emptyList()
-        val myRegistrations = myMatchRegistrations().associateBy { it.matchId }
-        val tournamentIds = matches.mapNotNull { it.tournamentId }.distinct()
-        val tournaments = if (tournamentIds.isEmpty()) emptyList() else tournamentsByIds(tournamentIds)
-        val tournamentsById = tournaments.associateBy { it.id }
-        val tournamentRegistrations = registrations()
-            .filter { it.status == "confirmed" || it.status == "waitlisted" }
-            .associateBy { it.tournamentId }
+        val myRegistrations = runCatching { myMatchRegistrations() }
+            .getOrDefault(emptyList())
+            .associateBy { it.matchId }
+        val tournamentsById = tournamentsFor(matches)
         return matches.map { match ->
             MatchFeedItem(
                 match = match,
                 tournament = match.tournamentId?.let { tournamentsById[it] },
                 matchRegistration = myRegistrations[match.id],
-                tournamentRegistration = match.tournamentId?.let { tournamentRegistrations[it] },
             )
         }
+    }
+
+    /**
+     * My Matches. Starts from the authenticated user's active match
+     * registrations, then resolves only those matches. It can never fall back to
+     * the public catalogue.
+     */
+    suspend fun myMatchFeed(): List<MatchFeedItem> {
+        val registrations = myMatchRegistrations()
+            .filter { it.status == "confirmed" || it.status == "waitlisted" }
+        if (registrations.isEmpty()) return emptyList()
+        val matches = matchesByIds(registrations.map { it.matchId }.distinct())
+        if (matches.isEmpty()) return emptyList()
+        val registrationsByMatch = registrations.associateBy { it.matchId }
+        val tournamentsById = tournamentsFor(matches)
+        return matches.map { match ->
+            MatchFeedItem(
+                match = match,
+                tournament = match.tournamentId?.let { tournamentsById[it] },
+                matchRegistration = registrationsByMatch[match.id],
+            )
+        }
+    }
+
+    private suspend fun matchesByIds(ids: List<String>): List<Match> {
+        if (ids.isEmpty()) return emptyList()
+        return remote.select(
+            "matches",
+            mapOf(
+                "id" to "in.(${ids.joinToString(",")})",
+                "is_published" to "eq.true",
+                "archived_at" to "is.null",
+                "status" to "neq.cancelled",
+                "order" to "scheduled_at.asc",
+                "select" to MATCH_COLUMNS,
+            ),
+            Match.serializer(),
+        )
+    }
+
+    private suspend fun tournamentsFor(matches: List<Match>): Map<String, Tournament> {
+        val ids = matches.mapNotNull { it.tournamentId }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return tournamentsByIds(ids).associateBy { it.id }
     }
 
     suspend fun myMatchRegistrations(): List<MatchRegistration> = remote.select(
@@ -233,48 +314,14 @@ class TournamentRepository @Inject constructor(
         )
     }
 
-    suspend fun myMatches(): List<MyMatch> {
-        val registrations = registrations().filter { it.status == "confirmed" || it.status == "waitlisted" }
-        if (registrations.isEmpty()) return emptyList()
-        val tournamentIds = registrations.map { it.tournamentId }.distinct()
-        // The two reads are independent; running them sequentially made the
-        // home dashboard pay both latencies back to back.
-        return coroutineScope {
-            val tournamentsById = async {
-                remote.select(
-                    "tournaments",
-                    mapOf(
-                        "id" to "in.(${tournamentIds.joinToString(",")})",
-                        "select" to TOURNAMENT_COLUMNS,
-                    ),
-                    Tournament.serializer(),
-                ).associateBy { it.id }
-            }
-            val matches = async {
-                remote.select(
-                    "matches",
-                    mapOf(
-                        "tournament_id" to "in.(${tournamentIds.joinToString(",")})",
-                        "order" to "scheduled_at.asc",
-                        "select" to MATCH_COLUMNS,
-                    ),
-                    Match.serializer(),
-                )
-            }
-            val tournaments = tournamentsById.await()
-            matches.await().mapNotNull { match ->
-                val tournamentId = match.tournamentId ?: return@mapNotNull null
-                val registration = registrations.firstOrNull { it.tournamentId == tournamentId }
-                    ?: return@mapNotNull null
-                val tournament = tournaments[tournamentId] ?: return@mapNotNull null
-                MyMatch(match, tournament, registration)
-            }
-        }
-    }
-
     suspend fun match(id: String): Match? = remote.selectOne(
         "matches",
-        mapOf("id" to "eq.$id", "select" to MATCH_COLUMNS),
+        mapOf(
+            "id" to "eq.$id",
+            "is_published" to "eq.true",
+            "archived_at" to "is.null",
+            "select" to MATCH_COLUMNS,
+        ),
         Match.serializer(),
     )
 

@@ -281,7 +281,20 @@ class ScheduleViewModel @Inject constructor(
 fun TournamentScheduleScreen(nav: NavHostController, id: String, viewModel: ScheduleViewModel = hiltViewModel()) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     LaunchedEffect(id) { viewModel.load(id) }
-    HmxPage(title = "Schedule", onBack = { nav.popBackStack() }) {
+    HmxPage(
+        title = "Schedule",
+        onBack = { nav.popBackStack() },
+        actions = {
+            Text(
+                "Refresh",
+                style = MaterialTheme.typography.labelMedium,
+                color = HmxColor.Ink,
+                modifier = Modifier
+                    .clickable { viewModel.load(id) }
+                    .padding(10.dp),
+            )
+        },
+    ) {
         when {
             ui.loading -> LoadingBlock("Loading schedule")
             ui.error != null -> InlineError(ui.error!!)

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Icon
@@ -55,9 +56,9 @@ import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.model.Announcement
 import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.util.Format
+import com.hmx.arena.data.repository.MatchFeedItem
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
-import com.hmx.arena.data.repository.MyMatch
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.HmxGlassBottomBar
@@ -84,7 +85,7 @@ import javax.inject.Inject
 data class HomeData(
     val profile: Profile,
     val featured: List<com.hmx.arena.core.model.Tournament>,
-    val upcoming: List<MyMatch>,
+    val upcoming: List<MatchFeedItem>,
     val announcements: List<Announcement>,
     val unread: Int,
 )
@@ -109,7 +110,7 @@ class HomeViewModel @Inject constructor(
                 coroutineScope {
                     val profile = async { player.myProfile() }
                     val featured = async { runCatching { tournaments.featured() }.getOrDefault(emptyList()) }
-                    val upcoming = async { runCatching { tournaments.myMatches() }.getOrDefault(emptyList()) }
+                    val upcoming = async { runCatching { tournaments.myMatchFeed() }.getOrDefault(emptyList()) }
                     val announcements = async { runCatching { player.announcements() }.getOrDefault(emptyList()) }
                     val unread = async {
                         runCatching { player.notifications().count { it.unread } }.getOrDefault(0)
@@ -147,27 +148,35 @@ fun HomeScreen(
         title = "HMX Arena",
         leading = { HmxBrandMark() },
         actions = {
-            Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 GlassIconButton(
-                    icon = Icons.Rounded.Notifications,
-                    contentDescription = "Notifications",
-                    onClick = { nav.navigate(Routes.NOTIFICATIONS) },
+                    icon = Icons.Rounded.Refresh,
+                    contentDescription = "Refresh home",
+                    onClick = viewModel::load,
                 )
-                val unread = data?.unread ?: 0
-                if (unread > 0) {
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(HmxColor.Ink),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            if (unread > 9) "9+" else unread.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = HmxColor.OnInk,
-                        )
+                Spacer(Modifier.width(6.dp))
+                Box {
+                    GlassIconButton(
+                        icon = Icons.Rounded.Notifications,
+                        contentDescription = "Notifications",
+                        onClick = { nav.navigate(Routes.NOTIFICATIONS) },
+                    )
+                    val unread = data?.unread ?: 0
+                    if (unread > 0) {
+                        Box(
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(HmxColor.Ink),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                if (unread > 9) "9+" else unread.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = HmxColor.OnInk,
+                            )
+                        }
                     }
                 }
             }
@@ -195,7 +204,7 @@ fun HomeScreen(
                                 nav.openTab(Routes.TOURNAMENTS)
                             }
                             QuickTile("My matches", Icons.Rounded.SportsEsports, Modifier.weight(1f)) {
-                                nav.openTab(Routes.MATCHES)
+                                nav.navigate(Routes.MY_MATCHES)
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -231,25 +240,25 @@ fun HomeScreen(
                 item {
                     GlassSectionHeader(
                         title = "Your schedule",
-                        action = "All matches",
-                        onAction = { nav.openTab(Routes.MATCHES) },
+                        action = "My matches",
+                        onAction = { nav.navigate(Routes.MY_MATCHES) },
                     )
                 }
                 if (data.upcoming.isEmpty()) {
                     item {
                         EmptyBlock(
-                            title = "No matches yet",
-                            message = "Register for a tournament and your matches will appear here with room details.",
+                            title = "No match registrations yet",
+                            message = "Register for a published match and it will appear here with its room details.",
                             icon = Icons.Rounded.EmojiEvents,
-                            actionLabel = "Find a tournament",
-                            onAction = { nav.openTab(Routes.TOURNAMENTS) },
+                            actionLabel = "Browse matches",
+                            onAction = { nav.openTab(Routes.MATCHES) },
                         )
                     }
                 } else {
                     items(data.upcoming.take(3), key = { it.match.id }) { entry ->
                         MatchCard(
                             match = entry.match,
-                            tournamentTitle = entry.tournament.title,
+                            tournamentTitle = entry.tournament?.title ?: "Independent match",
                             onClick = { nav.navigate(Routes.match(entry.match.id)) },
                         )
                     }
