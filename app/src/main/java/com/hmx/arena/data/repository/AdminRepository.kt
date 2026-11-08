@@ -1,8 +1,10 @@
 package com.hmx.arena.data.repository
 
 import com.hmx.arena.core.model.AuditLog
+import com.hmx.arena.core.model.Announcement
 import com.hmx.arena.core.model.LookupOption
 import com.hmx.arena.core.model.Match
+import com.hmx.arena.core.model.PromotionalBanner
 import com.hmx.arena.core.model.Tournament
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
@@ -26,7 +28,7 @@ class AdminRepository @Inject constructor(
     private val remote: RemoteDataSource,
 ) {
     private val lookupColumns =
-        "id,slug,name,description,logo_url,is_active,is_archived,display_order,created_at,updated_at"
+        "id,slug,name,description,logo_url,image_url,is_active,is_archived,display_order,created_at,updated_at"
 
     private val tournamentColumns =
         "*,category:categories($lookupColumns),gameMode:game_modes($lookupColumns)," +
@@ -82,6 +84,66 @@ class AdminRepository @Inject constructor(
 
     suspend fun deleteTournamentType(id: String) = remote.rpcUnit(
         "admin_delete_tournament_type",
+        buildJsonObject { put("p_id", id) },
+    )
+
+    /** Replaces the wide artwork while leaving the existing square logo intact. */
+    suspend fun setLookupImage(kind: String, id: String, imageUrl: String?) {
+        val rpcKind = when (kind) {
+            "categories", "category" -> "category"
+            "game-modes", "game_mode" -> "game_mode"
+            "tournament-types", "tournament_type" -> "tournament_type"
+            else -> throw ApiException("Unknown lookup kind.")
+        }
+        remote.rpcUnit(
+            "admin_set_lookup_image",
+            buildJsonObject {
+                put("p_kind", rpcKind)
+                put("p_id", id)
+                put("p_image_url", imageUrl.orEmpty())
+            },
+        )
+    }
+
+    // ---------------------------------------------------------------------
+    // Promotional banners
+    // ---------------------------------------------------------------------
+
+    suspend fun banners(): List<PromotionalBanner> = remote.select(
+        "promotional_banners",
+        mapOf(
+            "order" to "display_order.asc,created_at.desc",
+            "limit" to "200",
+        ),
+        PromotionalBanner.serializer(),
+    )
+
+    suspend fun upsertBanner(id: String?, payload: JsonObject): PromotionalBanner =
+        remote.rpc("admin_upsert_banner", idArgs(id, payload), PromotionalBanner.serializer())
+
+    suspend fun deleteBanner(id: String) = remote.rpcUnit(
+        "admin_delete_banner",
+        buildJsonObject { put("p_id", id) },
+    )
+
+    // ---------------------------------------------------------------------
+    // Announcements
+    // ---------------------------------------------------------------------
+
+    suspend fun announcements(): List<Announcement> = remote.select(
+        "announcements",
+        mapOf(
+            "order" to "created_at.desc",
+            "limit" to "200",
+        ),
+        Announcement.serializer(),
+    )
+
+    suspend fun upsertAnnouncement(id: String?, payload: JsonObject): Announcement =
+        remote.rpc("admin_upsert_announcement", idArgs(id, payload), Announcement.serializer())
+
+    suspend fun deleteAnnouncement(id: String) = remote.rpcUnit(
+        "admin_delete_announcement",
         buildJsonObject { put("p_id", id) },
     )
 
@@ -179,6 +241,21 @@ class AdminRepository @Inject constructor(
 
     suspend fun uploadCategoryLogo(categoryId: String, image: PickedImage): String =
         upload(SupabaseConfig.CATEGORY_LOGOS_BUCKET, "categories/$categoryId/logo-${
+            System.currentTimeMillis()
+        }.${extension(image.mime)}", image)
+
+    suspend fun uploadCategoryArtwork(categoryId: String, image: PickedImage): String =
+        upload(SupabaseConfig.CATEGORY_LOGOS_BUCKET, "categories/$categoryId/artwork-${
+            System.currentTimeMillis()
+        }.${extension(image.mime)}", image)
+
+    suspend fun uploadPromotionalBanner(bannerId: String, image: PickedImage): String =
+        upload(SupabaseConfig.TOURNAMENT_BANNERS_BUCKET, "banners/$bannerId/banner-${
+            System.currentTimeMillis()
+        }.${extension(image.mime)}", image)
+
+    suspend fun uploadAnnouncementImage(announcementId: String, image: PickedImage): String =
+        upload(SupabaseConfig.TOURNAMENT_BANNERS_BUCKET, "announcements/$announcementId/image-${
             System.currentTimeMillis()
         }.${extension(image.mime)}", image)
 

@@ -7,6 +7,7 @@ package com.hmx.arena.ui.navigation
 object Routes {
     const val HOME = "home"
     const val TOURNAMENTS = "tournaments"
+    const val TOURNAMENTS_FILTERED = "tournaments?category={category}"
     const val MATCHES = "matches"
     const val LEADERBOARD = "leaderboard"
     const val PROFILE = "profile"
@@ -27,6 +28,7 @@ object Routes {
     const val GAME_ACCOUNTS = "game-accounts"
     const val COMPLETE_PROFILE = "complete-profile"
     const val MY_MATCHES = "my-matches"
+    const val MY_MATCHES_FILTERED = "my-matches?section={section}"
     const val MY_REGISTRATIONS = "my-registrations"
     const val TEAM = "team"
     const val CREATE_TEAM = "create-team"
@@ -58,9 +60,15 @@ object Routes {
     const val ADMIN_TOURNAMENT_EDIT = "admin/tournaments/{id}"
     const val ADMIN_MATCHES = "admin/matches"
     const val ADMIN_MATCH_EDIT = "admin/matches/{id}"
+    const val ADMIN_BANNERS = "admin/banners"
+    const val ADMIN_ANNOUNCEMENTS = "admin/announcements"
     const val ADMIN_AUDIT = "admin/audit"
 
     fun tournament(id: String) = "tournament/$id"
+    fun tournaments(categoryId: String? = null) =
+        if (categoryId.isNullOrBlank()) TOURNAMENTS else "tournaments?category=$categoryId"
+    fun myMatches(section: String? = null) =
+        if (section.isNullOrBlank() || section == "all") MY_MATCHES else "my-matches?section=$section"
     fun tournamentRules(id: String) = "tournament/$id/rules"
     fun tournamentParticipants(id: String) = "tournament/$id/participants"
     fun tournamentSchedule(id: String) = "tournament/$id/schedule"
@@ -81,5 +89,5 @@ object Routes {
     fun adminTournamentEdit(id: String) = "admin/tournaments/$id"
     fun adminMatchEdit(id: String) = "admin/matches/$id"
 
-    val tabs = setOf(HOME, TOURNAMENTS, MATCHES, LEADERBOARD, PROFILE)
+    val tabs = setOf(REFERRAL, LEADERBOARD, HOME, WALLET, PROFILE)
 }

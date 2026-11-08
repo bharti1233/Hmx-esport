@@ -70,6 +70,33 @@ class MatchFeedRulesTest {
     }
 
     @Test
+    fun sectionCountsOnlyCountPublicMatches() {
+        val items = listOf(
+            MatchFeedItem(match("live", "live")),
+            MatchFeedItem(match("check-in", "check_in")),
+            MatchFeedItem(match("upcoming")),
+            MatchFeedItem(match("done", "completed")),
+            MatchFeedItem(match("draft", published = false)),
+            MatchFeedItem(match("cancelled", "cancelled")),
+        )
+
+        val counts = matchSectionCounts(items)
+
+        assertEquals(2, counts[MatchFeedSection.ONGOING])
+        assertEquals(1, counts[MatchFeedSection.UPCOMING])
+        assertEquals(1, counts[MatchFeedSection.COMPLETED])
+    }
+
+    @Test
+    fun sectionLookupMatchesTheFeedGroups() {
+        assertEquals(MatchFeedSection.ONGOING, matchSectionOf(match("live", "live")))
+        assertEquals(MatchFeedSection.ONGOING, matchSectionOf(match("check-in", "check_in")))
+        assertEquals(MatchFeedSection.UPCOMING, matchSectionOf(match("upcoming")))
+        assertEquals(MatchFeedSection.COMPLETED, matchSectionOf(match("done", "completed")))
+        assertEquals(null, matchSectionOf(match("draft", "draft")))
+    }
+
+    @Test
     fun registeredBadgeOnlyDependsOnMatchRegistration() {
         val publicMatch = match("m1")
         assertFalse(MatchFeedItem(publicMatch).registered)

@@ -100,6 +100,9 @@ data class HmxColorScheme(
     val scrim: Color,
     val danger: Color,
     val disabled: Color,
+    val accent: Color,
+    val onAccent: Color,
+    val accentSoft: Color,
     val backdropBloom: Color,
     val backdropCloud: Color,
     val backdropCloudSoft: Color,
@@ -132,6 +135,9 @@ val HmxLightColorScheme: HmxColorScheme = HmxColorScheme(
     scrim = Color(0x33000000),
     danger = Color(0xFF8C2F2F),
     disabled = Color(0xFFB0B0B7),
+    accent = Color(0xFFC62626),
+    onAccent = Color(0xFFFFFFFF),
+    accentSoft = Color(0x14C62626),
     backdropBloom = Color(0xFFFFFFFF),
     backdropCloud = Color(0x1FBFC0C6),
     backdropCloudSoft = Color(0x00BFC0C6),
@@ -195,6 +201,9 @@ val HmxDarkColorScheme: HmxColorScheme = HmxColorScheme(
     scrim = Color(0x70000000),
     danger = Color(0xFFFF8A8A),
     disabled = Color(0xFF5F5F68),
+    accent = Color(0xFFE5484D),
+    onAccent = Color(0xFF140607),
+    accentSoft = Color(0x26E5484D),
     // Dark bloom is a faint neutral light source, never a white glow. This is
     // the main safeguard against "light patches" behind dark glass.
     backdropBloom = Color(0xFFC1C5CE),
@@ -382,6 +391,18 @@ object HmxColor {
         @Composable
         @ReadOnlyComposable
         get() = LocalHmxColorScheme.current.disabled
+    val Accent: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalHmxColorScheme.current.accent
+    val OnAccent: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalHmxColorScheme.current.onAccent
+    val AccentSoft: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalHmxColorScheme.current.accentSoft
 
     val Glass: Color
         @Composable

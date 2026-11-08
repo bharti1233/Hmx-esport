@@ -21,11 +21,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SportsEsports
-import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,15 +46,16 @@ import com.hmx.arena.core.designsystem.HmxGlassTier
 import com.hmx.arena.core.designsystem.HmxLiquidGlassSurface
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.LocalHmxGlassTier
+import com.hmx.arena.ui.navigation.Routes
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    TabItem("home", "Home", Icons.Rounded.Home),
-    TabItem("tournaments", "Arena", Icons.Rounded.EmojiEvents),
-    TabItem("matches", "Matches", Icons.Rounded.SportsEsports),
-    TabItem("leaderboard", "Ranks", Icons.Rounded.Star),
-    TabItem("profile", "Profile", Icons.Rounded.Person),
+    TabItem(Routes.REFERRAL, "Earn", Icons.Rounded.CardGiftcard),
+    TabItem(Routes.LEADERBOARD, "Ranking", Icons.Rounded.EmojiEvents),
+    TabItem(Routes.HOME, "Play", Icons.Rounded.SportsEsports),
+    TabItem(Routes.WALLET, "Wallet", Icons.Rounded.Wallet),
+    TabItem(Routes.PROFILE, "Account", Icons.Rounded.Person),
 )
 
 /**

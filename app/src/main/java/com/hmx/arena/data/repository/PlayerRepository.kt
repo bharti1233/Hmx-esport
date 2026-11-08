@@ -7,10 +7,12 @@ import com.hmx.arena.core.model.NotificationItem
 import com.hmx.arena.core.model.Participant
 import com.hmx.arena.core.model.PlayerGameAccount
 import com.hmx.arena.core.model.Profile
+import com.hmx.arena.core.model.PromotionalBanner
 import com.hmx.arena.core.model.ReferralClaim
 import com.hmx.arena.core.model.SupportMessage
 import com.hmx.arena.core.model.SupportTicket
 import com.hmx.arena.core.model.WalletAccount
+import com.hmx.arena.core.model.WalletTotals
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.RemoteDataSource
 import com.hmx.arena.data.remote.SessionManager
@@ -130,6 +132,21 @@ class PlayerRepository @Inject constructor(
         Announcement.serializer(),
     )
 
+    /**
+     * Home promotional carousel. RLS already hides inactive/out-of-window rows;
+     * the explicit filters keep the intent visible and avoid relying on a single
+     * layer for correctness.
+     */
+    suspend fun promotionalBanners(): List<PromotionalBanner> = remote.select(
+        "promotional_banners",
+        mapOf(
+            "is_active" to "eq.true",
+            "order" to "display_order.asc,created_at.desc",
+            "limit" to "10",
+        ),
+        PromotionalBanner.serializer(),
+    )
+
     suspend fun flags(): Map<String, Boolean> {
         val rows = remote.selectRaw("app_config", mapOf("select" to "key,value"))
         return rows.mapNotNull { row ->
@@ -150,6 +167,17 @@ class PlayerRepository @Inject constructor(
         "financial_ledger",
         mapOf("user_id" to "eq.${uid()}", "order" to "created_at.desc", "limit" to "50"),
         LedgerEntry.serializer(),
+    )
+
+    /**
+     * Lifetime totals aggregated in the database. The activity list above is
+     * intentionally only the 50 newest rows, so it must never be treated as a
+     * complete financial history.
+     */
+    suspend fun walletTotals(): WalletTotals = remote.rpc(
+        "my_wallet_totals",
+        JsonObject(emptyMap()),
+        WalletTotals.serializer(),
     )
 
     suspend fun submitSupportTicket(category: String, subject: String, body: String): SupportTicket = remote.rpc(

@@ -19,12 +19,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.DropdownMenu
@@ -105,6 +107,8 @@ data class AdminDashboardUi(
     val typeCount: Int = 0,
     val tournamentCount: Int = 0,
     val matchCount: Int = 0,
+    val bannerCount: Int = 0,
+    val announcementCount: Int = 0,
     val recent: List<AuditLog> = emptyList(),
     val error: String? = null,
 )
@@ -130,6 +134,12 @@ class AdminDashboardViewModel @Inject constructor(
                     val types = async { admin.tournamentTypes() }
                     val tournaments = async { admin.tournaments() }
                     val matches = async { admin.matches() }
+                    val banners = async {
+                        runCatching { admin.banners() }.getOrDefault(emptyList())
+                    }
+                    val announcements = async {
+                        runCatching { admin.announcements() }.getOrDefault(emptyList())
+                    }
                     val audit = async { runCatching { admin.auditLogs(12) }.getOrDefault(emptyList()) }
                     AdminDashboardUi(
                         loading = false,
@@ -139,6 +149,8 @@ class AdminDashboardViewModel @Inject constructor(
                         typeCount = types.await().size,
                         tournamentCount = tournaments.await().size,
                         matchCount = matches.await().size,
+                        bannerCount = banners.await().size,
+                        announcementCount = announcements.await().size,
                         recent = audit.await(),
                     )
                 }
@@ -225,6 +237,25 @@ fun AdminDashboardScreen(nav: NavHostController, viewModel: AdminDashboardViewMo
                                 subtitle = "Recent administrative changes",
                                 icon = Icons.Rounded.History,
                                 onClick = { nav.navigate(Routes.ADMIN_AUDIT) },
+                            )
+                        }
+                    }
+                }
+                item {
+                    GlassSectionHeader("Home content")
+                    GlassSurface(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            GlassActionRow(
+                                title = "Promotional banners",
+                                subtitle = "${ui.bannerCount} banner(s), carousel on Home",
+                                icon = Icons.Rounded.Image,
+                                onClick = { nav.navigate(Routes.ADMIN_BANNERS) },
+                            )
+                            GlassActionRow(
+                                title = "Announcements",
+                                subtitle = "${ui.announcementCount} total, ticker and news",
+                                icon = Icons.Rounded.Campaign,
+                                onClick = { nav.navigate(Routes.ADMIN_ANNOUNCEMENTS) },
                             )
                         }
                     }
@@ -331,6 +362,7 @@ class AdminLookupViewModel @Inject constructor(
         archived: Boolean,
         logoUrl: String?,
         image: PickedImage?,
+        artwork: PickedImage? = null,
     ) {
         if (_ui.value.saving) return
         viewModelScope.launch {
@@ -364,6 +396,10 @@ class AdminLookupViewModel @Inject constructor(
                             put("logo_url", url)
                         },
                     )
+                }
+                if (lookupSupportsLogo(kind) && artwork != null) {
+                    val url = admin.uploadCategoryArtwork(saved.id, artwork)
+                    admin.setLookupImage(kind, saved.id, url)
                 }
                 saved
             }
@@ -420,9 +456,13 @@ fun AdminLookupScreen(
     var archived by remember { mutableStateOf(false) }
     var logoUrl by remember { mutableStateOf<String?>(null) }
     var picked by remember { mutableStateOf<PickedImage?>(null) }
+    var artworkUrl by remember { mutableStateOf<String?>(null) }
+    var artworkPicked by remember { mutableStateOf<PickedImage?>(null) }
     val (picker, launchPicker) = rememberPickedImage()
+    val (artworkPicker, launchArtworkPicker) = rememberPickedImage()
 
     LaunchedEffect(picker) { picker?.let { picked = it } }
+    LaunchedEffect(artworkPicker) { artworkPicker?.let { artworkPicked = it } }
 
     fun begin(item: LookupOption?) {
         name = item?.name.orEmpty()
@@ -432,7 +472,9 @@ fun AdminLookupScreen(
         active = item?.isActive ?: true
         archived = item?.isArchived ?: false
         logoUrl = item?.logoUrl
+        artworkUrl = item?.imageUrl
         picked = null
+        artworkPicked = null
         editing = true
         if (item == null) viewModel.startCreate() else viewModel.startEdit(item)
     }
@@ -499,8 +541,18 @@ fun AdminLookupScreen(
                                         logoUrl = null
                                     },
                                 )
+                                ArtworkRow(
+                                    label = "Category artwork (wide)",
+                                    url = artworkPicked?.uri?.toString() ?: artworkUrl,
+                                    square = false,
+                                    onPick = launchArtworkPicker,
+                                    onRemove = {
+                                        artworkPicked = null
+                                        artworkUrl = null
+                                    },
+                                )
                                 if (ui.editing == null) {
-                                    InlineNotice("Save the category first, then reopen it to upload a logo.")
+                                    InlineNotice("Save the category first, then reopen it to upload a logo or artwork.")
                                 }
                             }
                             SwitchRow("Active", active) { active = it }
@@ -518,6 +570,7 @@ fun AdminLookupScreen(
                                             archived = archived,
                                             logoUrl = logoUrl,
                                             image = picked,
+                                            artwork = artworkPicked,
                                         )
                                     },
                                     enabled = name.isNotBlank() && !ui.saving,
@@ -529,6 +582,7 @@ fun AdminLookupScreen(
                                     onClick = {
                                         editing = false
                                         picked = null
+                                        artworkPicked = null
                                         viewModel.clearForm()
                                     },
                                     variant = GlassButtonVariant.Secondary,

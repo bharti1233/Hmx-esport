@@ -1,5 +1,6 @@
 package com.hmx.arena.ui.referral
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +51,7 @@ import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassTextField
+import com.hmx.arena.ui.common.HmxGlassBottomBar
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
@@ -58,6 +60,8 @@ import com.hmx.arena.ui.common.LoadingBlock
 import com.hmx.arena.ui.common.StatusPill
 import com.hmx.arena.ui.common.copyToClipboard
 import com.hmx.arena.ui.common.hmxMessage
+import com.hmx.arena.ui.navigation.Routes
+import com.hmx.arena.ui.navigation.openTab
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -144,7 +148,10 @@ fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltVi
     val context = LocalContext.current
     LaunchedEffect(Unit) { viewModel.load() }
 
-    HmxPage(title = "Referrals", onBack = { nav.popBackStack() }) {
+    HmxPage(
+        title = "Earn",
+        bottomBar = { HmxGlassBottomBar(Routes.REFERRAL) { nav.openTab(it) } },
+    ) {
         when {
             ui.loading -> LoadingBlock("Loading referral details")
             ui.error != null && ui.code.isBlank() -> InlineError(ui.error!!, onRetry = viewModel::load)
@@ -185,6 +192,8 @@ fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltVi
                                 color = HmxColor.InkSecondary,
                             )
                             if (ui.code.isNotBlank()) {
+                                val inviteText =
+                                    "Join HMX Arena and use my invite code ${ui.code} when you sign up."
                                 Spacer(Modifier.height(14.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     GlassButton(
@@ -199,18 +208,25 @@ fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltVi
                                         onClick = {
                                             val intent = Intent(Intent.ACTION_SEND).apply {
                                                 type = "text/plain"
-                                                putExtra(
-                                                    Intent.EXTRA_TEXT,
-                                                    "Join HMX Arena and use my invite code ${ui.code} when you sign up.",
-                                                )
+                                                putExtra(Intent.EXTRA_TEXT, inviteText)
                                             }
-                                            context.startActivity(Intent.createChooser(intent, "Share invite code"))
+                                            context.startActivity(
+                                                Intent.createChooser(intent, "Share invite code"),
+                                            )
                                         },
-                                        variant = GlassButtonVariant.Ink,
+                                        variant = GlassButtonVariant.Secondary,
                                         leadingIcon = Icons.Rounded.Share,
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
+                                Spacer(Modifier.height(10.dp))
+                                GlassButton(
+                                    text = "Share to WhatsApp",
+                                    onClick = { shareWhatsApp(context, inviteText) },
+                                    variant = GlassButtonVariant.Accent,
+                                    leadingIcon = Icons.Rounded.Share,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
                         }
                     }
@@ -286,5 +302,22 @@ fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltVi
                 }
             }
         }
+    }
+}
+
+private fun shareWhatsApp(context: android.content.Context, text: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        setPackage("com.whatsapp")
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        val fallback = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(fallback, "Share invite code"))
     }
 }

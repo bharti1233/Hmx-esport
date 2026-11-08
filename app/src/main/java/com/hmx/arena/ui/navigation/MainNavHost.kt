@@ -2,10 +2,14 @@ package com.hmx.arena.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.hmx.arena.ui.admin.AdminAuditScreen
+import com.hmx.arena.ui.admin.AdminAnnouncementsScreen
+import com.hmx.arena.ui.admin.AdminBannersScreen
 import com.hmx.arena.ui.admin.AdminDashboardScreen
 import com.hmx.arena.ui.admin.AdminLookupScreen
 import com.hmx.arena.ui.admin.AdminMatchEditScreen
@@ -74,7 +78,16 @@ private fun MainGraph(nav: NavHostController, startDestination: String) {
 
 private fun androidx.navigation.NavGraphBuilder.tabDestinations(nav: NavHostController) {
     composable(Routes.HOME) { HomeScreen(nav) }
-    composable(Routes.TOURNAMENTS) { TournamentsScreen(nav) }
+    composable(
+        route = Routes.TOURNAMENTS_FILTERED,
+        arguments = listOf(
+            navArgument("category") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            },
+        ),
+    ) { TournamentsScreen(nav) }
     composable(Routes.MATCHES) { MatchesScreen(nav) }
     composable(Routes.LEADERBOARD) { LeaderboardScreen(nav) }
     composable(Routes.PROFILE) { ProfileScreen(nav) }
@@ -141,7 +154,16 @@ private fun androidx.navigation.NavGraphBuilder.tournamentDestinations(nav: NavH
 }
 
 private fun androidx.navigation.NavGraphBuilder.matchDestinations(nav: NavHostController) {
-    composable(Routes.MY_MATCHES) { MyMatchesScreen(nav) }
+    composable(
+        route = Routes.MY_MATCHES_FILTERED,
+        arguments = listOf(
+            navArgument("section") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            },
+        ),
+    ) { MyMatchesScreen(nav) }
     composable(Routes.MATCH) { entry ->
         MatchDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
     }
@@ -166,6 +188,8 @@ private fun androidx.navigation.NavGraphBuilder.adminDestinations(nav: NavHostCo
     composable(Routes.ADMIN_TOURNAMENT_EDIT) { AdminTournamentEditScreen(nav) }
     composable(Routes.ADMIN_MATCHES) { AdminMatchesScreen(nav) }
     composable(Routes.ADMIN_MATCH_EDIT) { AdminMatchEditScreen(nav) }
+    composable(Routes.ADMIN_BANNERS) { AdminBannersScreen(nav) }
+    composable(Routes.ADMIN_ANNOUNCEMENTS) { AdminAnnouncementsScreen(nav) }
     composable(Routes.ADMIN_AUDIT) { AdminAuditScreen(nav) }
 }
 

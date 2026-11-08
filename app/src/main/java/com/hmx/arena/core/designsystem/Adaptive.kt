@@ -38,6 +38,18 @@ fun hmxGridColumns(window: HmxWindowClass): Int = when (window) {
     HmxWindowClass.Expanded -> 3
 }
 
+/**
+ * Columns for the artwork-first category grid. Artwork cards are square-ish and
+ * carry only a name, so they can be denser than tournament cards. Compact keeps
+ * the reference 2-column rhythm; tablets get a real gallery rather than two
+ * stretched tiles.
+ */
+fun hmxCategoryColumns(window: HmxWindowClass): Int = when (window) {
+    HmxWindowClass.Compact -> 2
+    HmxWindowClass.Medium -> 3
+    HmxWindowClass.Expanded -> 5
+}
+
 /** Width reserved for the navigation rail on medium/expanded windows. */
 val HmxRailWidth: Dp = 96.dp
 

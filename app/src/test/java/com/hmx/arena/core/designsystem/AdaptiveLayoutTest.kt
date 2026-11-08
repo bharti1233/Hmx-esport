@@ -43,6 +43,13 @@ class AdaptiveLayoutTest {
     }
 
     @Test
+    fun categoryArtworkGridUsesItsOwnDensity() {
+        assertEquals(2, hmxCategoryColumns(HmxWindowClass.Compact))
+        assertEquals(3, hmxCategoryColumns(HmxWindowClass.Medium))
+        assertEquals(5, hmxCategoryColumns(HmxWindowClass.Expanded))
+    }
+
+    @Test
     fun railIsWideEnoughForTheVerticalBottomBar() {
         // HmxLiquidGlassBottomBar switches to its rail layout below 200.dp.
         assertEquals(96.dp, HmxRailWidth)

@@ -42,6 +42,7 @@ data class LookupOption(
     val name: String = "",
     val description: String = "",
     @SerialName("logo_url") val logoUrl: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("is_archived") val isArchived: Boolean = false,
     @SerialName("display_order") val displayOrder: Int = 0,
@@ -49,6 +50,9 @@ data class LookupOption(
     @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     val available: Boolean get() = isActive && !isArchived
+
+    /** Wide artwork when an admin uploaded it, otherwise the square badge. */
+    val artworkUrl: String? get() = imageUrl?.takeIf { it.isNotBlank() } ?: logoUrl?.takeIf { it.isNotBlank() }
 }
 
 @Serializable
@@ -274,7 +278,29 @@ data class Announcement(
     val title: String,
     val body: String,
     @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("is_published") val isPublished: Boolean = false,
     @SerialName("published_at") val publishedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+/**
+ * Admin-managed Home carousel record. Public reads only return active rows that
+ * are inside their optional start/end window; the Android client never invents
+ * a banner.
+ */
+@Serializable
+data class PromotionalBanner(
+    val id: String,
+    val title: String,
+    val subtitle: String = "",
+    @SerialName("image_url") val imageUrl: String? = null,
+    val destination: String? = null,
+    @SerialName("display_order") val displayOrder: Int = 0,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -296,6 +322,22 @@ data class WalletAccount(
     @SerialName("balance_paise") val balancePaise: Long = 0,
     @SerialName("reserved_paise") val reservedPaise: Long = 0,
     val currency: String = "INR",
+)
+
+/**
+ * Server-side lifetime totals from `my_wallet_totals()`. These are computed
+ * over the full immutable ledger, unlike the 50-row activity list.
+ */
+@Serializable
+data class WalletTotals(
+    @SerialName("balance_paise") val balancePaise: Long = 0,
+    @SerialName("reserved_paise") val reservedPaise: Long = 0,
+    val currency: String = "INR",
+    @SerialName("deposited_paise") val depositedPaise: Long = 0,
+    @SerialName("winning_paise") val winningPaise: Long = 0,
+    @SerialName("earnings_paise") val earningsPaise: Long = 0,
+    @SerialName("payouts_paise") val payoutsPaise: Long = 0,
+    @SerialName("entry_count") val entryCount: Long = 0,
 )
 
 @Serializable

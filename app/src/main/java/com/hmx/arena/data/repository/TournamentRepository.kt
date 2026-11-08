@@ -40,12 +40,12 @@ data class MatchFeedItem(
 }
 
 private const val LOOKUP_EMBED =
-    "category:categories(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
-        "gameMode:game_modes(id,slug,name,description,logo_url,is_active,is_archived,display_order)," +
-        "tournamentType:tournament_types(id,slug,name,description,logo_url,is_active,is_archived,display_order)"
+    "category:categories(id,slug,name,description,logo_url,image_url,is_active,is_archived,display_order)," +
+        "gameMode:game_modes(id,slug,name,description,logo_url,image_url,is_active,is_archived,display_order)," +
+        "tournamentType:tournament_types(id,slug,name,description,logo_url,image_url,is_active,is_archived,display_order)"
 
 private const val LOOKUP_COLUMNS =
-    "id,slug,name,description,logo_url,is_active,is_archived,display_order"
+    "id,slug,name,description,logo_url,image_url,is_active,is_archived,display_order"
 
 private const val TOURNAMENT_COLUMNS = "*,$LOOKUP_EMBED"
 private const val MATCH_COLUMNS = "*,$LOOKUP_EMBED"

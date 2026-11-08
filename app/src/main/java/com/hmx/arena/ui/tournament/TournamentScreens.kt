@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,6 +70,7 @@ import com.hmx.arena.core.designsystem.HmxColor
 import com.hmx.arena.core.designsystem.HmxDimens
 import com.hmx.arena.core.designsystem.HmxShapes
 import com.hmx.arena.core.designsystem.LocalHmxWindowClass
+import com.hmx.arena.core.designsystem.hmxCategoryColumns
 import com.hmx.arena.core.designsystem.hmxGridColumns
 import com.hmx.arena.core.model.LookupOption
 import com.hmx.arena.core.model.Registration
@@ -82,6 +84,7 @@ import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.GlassTextField
 import com.hmx.arena.ui.common.GlassActionRow
+import com.hmx.arena.ui.common.HmxCategoryArtCard
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
@@ -122,8 +125,10 @@ data class TournamentsUi(
 @HiltViewModel
 class TournamentsViewModel @Inject constructor(
     private val repository: TournamentRepository,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val _ui = MutableStateFlow(TournamentsUi())
+    private val initialCategory = savedStateHandle.get<String>("category")
+    private val _ui = MutableStateFlow(TournamentsUi(categoryId = initialCategory))
     val ui: StateFlow<TournamentsUi> = _ui.asStateFlow()
 
     init { load() }
@@ -206,7 +211,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                 modifier = Modifier.clickable { viewModel.load() }.padding(10.dp),
             )
         },
-        bottomBar = { HmxGlassBottomBar(Routes.TOURNAMENTS) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.HOME) { nav.openTab(it) } },
     ) {
         val columns = hmxGridColumns(LocalHmxWindowClass.current)
         LazyVerticalGrid(
@@ -228,15 +233,47 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                 )
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        GlassChip("All categories", ui.categoryId == null) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Categories",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = HmxColor.Ink,
+                            modifier = Modifier.weight(1f),
+                        )
+                        GlassChip("All", ui.categoryId == null) {
                             viewModel.setCategory(null)
                         }
                     }
-                    items(ui.categories, key = { it.id }) { category ->
-                        GlassChip(category.name, ui.categoryId == category.id) {
-                            viewModel.setCategory(category.id)
+                    if (ui.categories.isEmpty()) {
+                        Text(
+                            "Categories are managed by the arena team.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HmxColor.InkSecondary,
+                        )
+                    } else {
+                        val categoryColumns = hmxCategoryColumns(LocalHmxWindowClass.current)
+                        ui.categories.chunked(categoryColumns).forEach { row ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                row.forEach { category ->
+                                    HmxCategoryArtCard(
+                                        category = category,
+                                        selected = ui.categoryId == category.id,
+                                        onClick = {
+                                            viewModel.setCategory(
+                                                if (ui.categoryId == category.id) null else category.id,
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                repeat(categoryColumns - row.size) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
                 }
@@ -270,7 +307,7 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                         color = HmxColor.Ink,
                         modifier = Modifier
                             .clip(HmxShapes.pill)
-                            .clickable { nav.navigate(Routes.MY_MATCHES) }
+                            .clickable { nav.navigate(Routes.myMatches()) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                     Text(

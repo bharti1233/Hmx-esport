@@ -444,12 +444,14 @@ fun GlassButton(
         GlassButtonVariant.Secondary -> HmxColor.GlassMuted
         GlassButtonVariant.Ink -> if (enabled) HmxColor.Ink else HmxColor.Disabled
         GlassButtonVariant.Danger -> HmxColor.GlassMuted
+        GlassButtonVariant.Accent -> if (enabled) HmxColor.Accent else HmxColor.Disabled
     }
     val contentColor = when (variant) {
         GlassButtonVariant.Primary -> HmxColor.Ink
         GlassButtonVariant.Secondary -> HmxColor.Ink
         GlassButtonVariant.Ink -> HmxColor.OnInk
         GlassButtonVariant.Danger -> HmxColor.Danger
+        GlassButtonVariant.Accent -> HmxColor.OnAccent
     }
     HmxLiquidGlassSurface(
         modifier = modifier
@@ -464,9 +466,17 @@ fun GlassButton(
                 onClick = onClick,
             ),
         shape = HmxShapes.pill,
-        level = if (variant == GlassButtonVariant.Ink) HmxGlassLevel.Card else HmxGlassLevel.Control,
+        level = if (variant == GlassButtonVariant.Ink || variant == GlassButtonVariant.Accent) {
+            HmxGlassLevel.Card
+        } else {
+            HmxGlassLevel.Control
+        },
         fill = fill,
-        elevation = if (variant == GlassButtonVariant.Ink) 8.dp else HmxElevation.card,
+        elevation = if (variant == GlassButtonVariant.Ink || variant == GlassButtonVariant.Accent) {
+            8.dp
+        } else {
+            HmxElevation.card
+        },
     ) {
         Row(
             Modifier.fillMaxSize(),
@@ -499,7 +509,7 @@ fun GlassButton(
     }
 }
 
-enum class GlassButtonVariant { Primary, Secondary, Ink, Danger }
+enum class GlassButtonVariant { Primary, Secondary, Ink, Danger, Accent }
 
 @Composable
 fun GlassChip(

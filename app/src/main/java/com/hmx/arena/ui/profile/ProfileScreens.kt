@@ -165,7 +165,7 @@ fun ProfileScreen(nav: NavHostController, viewModel: ProfileViewModel = hiltView
     LaunchedEffect(picked) { picked?.let(viewModel::uploadAvatar) }
 
     HmxPage(
-        title = "Profile",
+        title = "Account",
         actions = {
             com.hmx.arena.core.designsystem.GlassIconButton(
                 icon = Icons.Rounded.Settings,

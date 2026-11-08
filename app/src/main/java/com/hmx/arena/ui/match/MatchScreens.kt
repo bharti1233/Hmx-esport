@@ -68,14 +68,18 @@ import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.remote.SessionManager
 import com.hmx.arena.data.repository.MatchFeedItem
+import com.hmx.arena.data.repository.MatchFeedSection
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.data.repository.groupMatchFeed
+import com.hmx.arena.data.repository.matchSectionCounts
 import com.hmx.arena.ui.common.CopyRow
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassTextField
 import com.hmx.arena.ui.common.GlassActionRow
 import com.hmx.arena.ui.common.HmxPage
+import com.hmx.arena.ui.common.HmxFilterOption
+import com.hmx.arena.ui.common.HmxFilterTabs
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.InlineNotice
 import com.hmx.arena.ui.common.InlineSuccess
@@ -105,6 +109,7 @@ data class MatchesUi(
     val loading: Boolean = true,
     val items: List<MatchFeedItem> = emptyList(),
     val error: String? = null,
+    val section: String = "all",
 )
 
 @HiltViewModel
@@ -116,6 +121,10 @@ class MatchesViewModel @Inject constructor(
 
     init { load() }
 
+    fun setSection(section: String) {
+        if (section in matchSections) _ui.update { it.copy(section = section) }
+    }
+
     fun load() {
         viewModelScope.launch {
             _ui.update { it.copy(loading = it.items.isEmpty(), error = null) }
@@ -125,6 +134,8 @@ class MatchesViewModel @Inject constructor(
         }
     }
 }
+
+private val matchSections = setOf("all", "ongoing", "upcoming", "completed")
 
 @Composable
 fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltViewModel()) {
@@ -139,13 +150,21 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
                 modifier = Modifier.clickable { viewModel.load() }.padding(10.dp),
             )
         },
-        bottomBar = { HmxGlassBottomBar(Routes.MATCHES) { nav.openTab(it) } },
+        bottomBar = { HmxGlassBottomBar(Routes.HOME) { nav.openTab(it) } },
     ) {
-        val groups = groupMatchFeed(ui.items)
+        val counts = matchSectionCounts(ui.items)
+        val groups = groupMatchFeed(ui.items).filter { group ->
+            when (ui.section) {
+                "ongoing" -> group.section == MatchFeedSection.ONGOING
+                "upcoming" -> group.section == MatchFeedSection.UPCOMING
+                "completed" -> group.section == MatchFeedSection.COMPLETED
+                else -> true
+            }
+        }
         when {
             ui.loading && ui.items.isEmpty() -> LoadingBlock("Loading matches")
             ui.error != null && ui.items.isEmpty() -> InlineError(ui.error!!, onRetry = viewModel::load)
-            groups.isEmpty() -> EmptyBlock(
+            ui.items.isEmpty() -> EmptyBlock(
                 title = "No matches scheduled",
                 message = "Published matches appear here as soon as the admin team schedules them.",
                 icon = Icons.Rounded.SportsEsports,
@@ -157,6 +176,18 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 124.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                item {
+                    HmxFilterTabs(
+                        options = listOf(
+                            HmxFilterOption("all", "All", ui.items.size),
+                            HmxFilterOption("ongoing", "Ongoing", counts[MatchFeedSection.ONGOING] ?: 0),
+                            HmxFilterOption("upcoming", "Upcoming", counts[MatchFeedSection.UPCOMING] ?: 0),
+                            HmxFilterOption("completed", "Results", counts[MatchFeedSection.COMPLETED] ?: 0),
+                        ),
+                        selectedKey = ui.section,
+                        onSelect = viewModel::setSection,
+                    )
+                }
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -170,22 +201,34 @@ fun MatchesScreen(nav: NavHostController, viewModel: MatchesViewModel = hiltView
                             style = MaterialTheme.typography.labelMedium,
                             color = HmxColor.Ink,
                             modifier = Modifier
-                                .clickable { nav.navigate(Routes.MY_MATCHES) }
+                                .clickable { nav.navigate(Routes.myMatches()) }
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         )
                     }
                 }
-                groups.forEach { group ->
-                    item(key = "section-${group.section.name}") {
-                        GlassSectionHeader("${group.section.label} · ${group.items.size}")
-                    }
-                    items(group.items, key = { it.match.id }) { entry ->
-                        MatchFeedCard(
-                            match = entry.match,
-                            tournamentTitle = entry.tournament?.title,
-                            registered = entry.registered,
-                            onClick = { nav.navigate(Routes.match(entry.match.id)) },
+                if (groups.isEmpty()) {
+                    item {
+                        EmptyBlock(
+                            title = "Nothing in this section",
+                            message = "Switch to another filter to see the other published matches.",
+                            icon = Icons.Rounded.SportsEsports,
+                            actionLabel = "Show all",
+                            onAction = { viewModel.setSection("all") },
                         )
+                    }
+                } else {
+                    groups.forEach { group ->
+                        item(key = "section-${group.section.name}") {
+                            GlassSectionHeader("${group.section.label} · ${group.items.size}")
+                        }
+                        items(group.items, key = { it.match.id }) { entry ->
+                            MatchFeedCard(
+                                match = entry.match,
+                                tournamentTitle = entry.tournament?.title,
+                                registered = entry.registered,
+                                onClick = { nav.navigate(Routes.match(entry.match.id)) },
+                            )
+                        }
                     }
                 }
             }
