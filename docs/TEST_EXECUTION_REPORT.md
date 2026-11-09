@@ -46,6 +46,7 @@ fixed in `41d82a8`; no test or product logic was affected.
 | `ui/category/CategoryEmptyStateTest.kt` | Exact empty message |
 | `ui/common/CategoryFallbackTest.kt` | Deterministic glyphs, initials, artwork/logo precedence, blank fields |
 | `ui/home/HomeLayoutTest.kt` | Section order, categories last, removed blocks, exact heading/description |
+| `core/model/MatchModelTest.kt` | Capacity/full/remaining slots, overfill clamp, match number, entry type |
 
 Existing tests (`AdaptiveLayoutTest`, `ThemeTokensTest`, `FormatTest`,
 `RegistrationRulesTest`, `ValidationTest`, `WalletSummaryTest`,

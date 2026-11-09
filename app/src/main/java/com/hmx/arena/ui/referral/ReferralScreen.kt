@@ -157,7 +157,7 @@ fun ReferralScreen(nav: NavHostController, viewModel: ReferralViewModel = hiltVi
             ui.error != null && ui.code.isBlank() -> InlineError(ui.error!!, onRetry = viewModel::load)
             else -> LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 124.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (ui.message != null) item { InlineSuccess(ui.message!!) }

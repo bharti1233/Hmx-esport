@@ -40,8 +40,10 @@ windows. On Medium/Expanded with a bottom bar, `GlassScaffold` reserves the
 ## 4. Insets
 
 - Tab destinations (Home, Arena, Matches, Leaderboard, Wallet, Profile,
-  Referral) reserve the floating bar inset. Home and Arena use `124.dp`;
-  the shared bottom bar is drawn with navigation-bar padding.
+  Referral) reserve the floating bar inset. Home, Arena, Matches, Leaderboard,
+  Wallet and Profile use `124.dp`; the Earn/Referral list was corrected to the
+  same `124.dp` bottom inset in this change. The shared bottom bar is drawn
+  with navigation-bar padding.
 - Drill-in screens such as the category screen do not add tab-bar padding.
 - Status bars are handled by `GlassScaffold` (`statusBarsPadding`).
 
