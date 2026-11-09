@@ -178,7 +178,8 @@ class RemoteDataSource @Inject constructor(
 
 /**
  * Reads the total from a PostgREST `Content-Range` header. Examples:
- * `0-19/42`, `*/0`. Anything malformed yields null rather than zero.
+ * `0-19/42` and the empty-result form that ends in `/0`. Anything malformed
+ * yields null rather than zero.
  */
 internal fun parseContentRangeCount(header: String?): Int? {
     val total = header?.substringAfterLast('/')?.trim() ?: return null
