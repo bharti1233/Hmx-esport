@@ -145,4 +145,76 @@ class MatchFeedRulesTest {
         assertEquals("25", params["limit"])
         assertTrue(params.getValue("select").contains("tournamentType:tournament_types"))
     }
+
+    @Test
+    fun tabStatusFiltersUseTheCanonicalBackendStatuses() {
+        assertEquals("in.(live,check_in)", matchSectionStatusFilter(MatchFeedSection.ONGOING))
+        assertEquals("eq.scheduled", matchSectionStatusFilter(MatchFeedSection.UPCOMING))
+        assertEquals("eq.completed", matchSectionStatusFilter(MatchFeedSection.COMPLETED))
+        assertEquals("ongoing", matchSectionKey(MatchFeedSection.ONGOING))
+        assertEquals("upcoming", matchSectionKey(MatchFeedSection.UPCOMING))
+        assertEquals("completed", matchSectionKey(MatchFeedSection.COMPLETED))
+    }
+
+    @Test
+    fun preferredSectionSkipsEmptyTabsButNeverInventsACount() {
+        assertEquals(
+            MatchFeedSection.UPCOMING,
+            preferredMatchSection(mapOf(MatchFeedSection.ONGOING to 0, MatchFeedSection.UPCOMING to 2)),
+        )
+        assertEquals(
+            MatchFeedSection.ONGOING,
+            preferredMatchSection(mapOf(MatchFeedSection.ONGOING to 1)),
+        )
+        assertEquals(null, preferredMatchSection(null))
+        assertEquals(
+            null,
+            preferredMatchSection(MatchFeedSection.entries.associateWith { 0 }),
+        )
+    }
+
+    @Test
+    fun categoryQueryIsServerSideFilteredAndPaged() {
+        val params = categoryMatchQueryParams(
+            categoryId = "cat-1",
+            section = MatchFeedSection.UPCOMING,
+            limit = 20,
+            offset = 40,
+        )
+        assertEquals("eq.cat-1", params["category_id"])
+        assertEquals("eq.true", params["is_published"])
+        assertEquals("is.null", params["archived_at"])
+        assertEquals("eq.scheduled", params["status"])
+        assertEquals("20", params["limit"])
+        assertEquals("40", params["offset"])
+        assertEquals("scheduled_at.asc", params["order"])
+        assertTrue(params.getValue("select").contains("category:categories"))
+    }
+
+    @Test
+    fun completedCategoryTabOrdersNewestFirst() {
+        val params = categoryMatchQueryParams("cat-1", MatchFeedSection.COMPLETED)
+        assertEquals("eq.completed", params["status"])
+        assertEquals("scheduled_at.desc", params["order"])
+    }
+
+    @Test
+    fun categoryCountQueryMirrorsTheListFilters() {
+        val list = categoryMatchQueryParams("cat-1", MatchFeedSection.ONGOING)
+        val count = categoryMatchCountQueryParams("cat-1", MatchFeedSection.ONGOING)
+        list.filterKeys { it != "limit" && it != "offset" && it != "order" && it != "select" }
+            .forEach { (key, value) -> assertEquals(value, count[key]) }
+        assertEquals("1", count["limit"])
+        assertEquals("id", count["select"])
+    }
+
+    @Test
+    fun tournamentCountNeverClaimsZeroBeforeTheQueryFinishes() {
+        assertEquals("Loading tournaments…", tournamentCountLabel(0, loading = true, hasError = false))
+        assertEquals("Tournaments unavailable", tournamentCountLabel(0, loading = false, hasError = true))
+        assertEquals("0 tournaments", tournamentCountLabel(0, loading = false, hasError = false))
+        assertEquals("3 tournaments", tournamentCountLabel(3, loading = false, hasError = false))
+        // A refresh keeps the last known total visible instead of flashing zero.
+        assertEquals("3 tournaments", tournamentCountLabel(3, loading = true, hasError = false))
+    }
 }

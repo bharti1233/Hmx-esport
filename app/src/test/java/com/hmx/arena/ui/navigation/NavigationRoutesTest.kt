@@ -54,4 +54,15 @@ class NavigationRoutesTest {
         assertEquals("admin/lookups/{kind}", Routes.ADMIN_LOOKUP)
         assertEquals("admin/lookups/categories", Routes.adminLookup("categories"))
     }
+
+    @Test
+    fun categoryMatchRouteUsesAStableCategoryId() {
+        assertEquals("category/{categoryId}", Routes.CATEGORY_MATCHES)
+        assertEquals(
+            "category/2efb765a-3f3a-444b-8207-8fdb9141e93b",
+            Routes.categoryMatches("2efb765a-3f3a-444b-8207-8fdb9141e93b"),
+        )
+        // The category screen must not reuse the generic tournament route.
+        assertFalse(Routes.categoryMatches("abc") == Routes.tournaments("abc"))
+    }
 }
