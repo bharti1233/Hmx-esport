@@ -23,7 +23,8 @@ Glass UI.
 | `83cc5b9` | Dedicated category match screen; stale Arena category fix |
 | `a5fa476` | Unit tests for routes, filters, counts, fallbacks, Home order |
 | `41d82a8` | Fix KDoc comment that broke Kotlin compilation |
-| reports commit | This report set |
+| `36c7f10` | Nine required reports |
+| `9e923ce` | Referral bottom-bar inset; match capacity/number tests |
 
 ## 3. Behaviour
 
@@ -84,15 +85,17 @@ Full detail: `docs/SUPABASE_SECURITY_VERIFICATION.md`.
 - New/extended unit tests cover routes, tab filters, category query and
   pagination, count parsing, empty copy, artwork precedence, Home order and
   loading-aware counts.
-- GitHub Actions `Android CI` run `42600924395` on commit `41d82a8`:
-  unit tests, Android lint and debug APK all passed.
+- GitHub Actions `Android CI` run `42601837393` on commit `9e923ce`:
+  unit tests, Android lint and debug APK all passed. An earlier code run
+  `42600924395` on `41d82a8` also passed; the first run `42600587008` failed
+  only on the KDoc syntax issue that `41d82a8` fixed.
 - Full detail: `docs/TEST_EXECUTION_REPORT.md`.
 
 ## 7. Responsive and performance
 
 - Existing window-class breakpoints drive category/tournament grids and content
-  caps; bottom-bar screens keep a 124 dp inset, drill-in screens use a smaller
-  inset.
+  caps; bottom-bar screens keep a 124 dp inset (the Earn/Referral list was
+  corrected in `9e923ce`), drill-in screens use a smaller inset.
 - Bounded pagination, per-tab caching, stable lazy keys, Coil caching,
   duplicate-request guards and the existing glass tier behaviour are used.
 - No theme, blur tier or Liquid Glass token was changed.

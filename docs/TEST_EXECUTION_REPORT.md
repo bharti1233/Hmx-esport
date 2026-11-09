@@ -16,9 +16,13 @@ Actions on Ubuntu with JDK 17 and Android SDK 36.
 | --- | --- |
 | Workflow | `Android CI` (`.github/workflows/android-ci.yml`) |
 | Trigger | `workflow_dispatch` |
-| Run | `42600924395` |
-| Commit | `41d82a8` |
+| Run | `42601837393` |
+| Commit | `9e923ce` |
 | Result | **success** |
+
+An intermediate docs-only run (`42601677055`) was cancelled by the
+concurrency group when the next commit was pushed; no build ran in it. The
+previous code run `42600924395` on `41d82a8` was also successful.
 
 Steps in the passing run:
 
