@@ -122,6 +122,21 @@ class RemoteDataSource @Inject constructor(
         Unit
     }
 
+    /**
+     * Exact row count for the same filters as a list query. PostgREST returns
+     * the total in `Content-Range` when `Prefer: count=exact` is applied. A
+     * missing/malformed header returns null so the UI can withhold a number
+     * instead of displaying a fabricated zero.
+     */
+    suspend fun count(table: String, params: Map<String, String>): Int? = guardApi {
+        val response = rest.head(table, params)
+        if (!response.isSuccessful) {
+            val message = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(mapDbMessage(parseErrorMessage(message ?: "")), message)
+        }
+        parseContentRangeCount(response.headers()["Content-Range"])
+    }
+
     suspend fun upload(
         bucket: String,
         path: String,
@@ -159,4 +174,13 @@ class RemoteDataSource @Inject constructor(
             if (item is JsonNull) null else runCatching { json.decodeFromJsonElement(deserializer, item) }.getOrNull()
         }
     }
+}
+
+/**
+ * Reads the total from a PostgREST `Content-Range` header. Examples:
+ * `0-19/42`, `*/0`. Anything malformed yields null rather than zero.
+ */
+internal fun parseContentRangeCount(header: String?): Int? {
+    val total = header?.substringAfterLast('/')?.trim() ?: return null
+    return total.toIntOrNull()?.takeIf { it >= 0 }
 }

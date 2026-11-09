@@ -16,6 +16,7 @@ import com.hmx.arena.ui.admin.AdminMatchEditScreen
 import com.hmx.arena.ui.admin.AdminMatchesScreen
 import com.hmx.arena.ui.admin.AdminTournamentEditScreen
 import com.hmx.arena.ui.admin.AdminTournamentsScreen
+import com.hmx.arena.ui.category.CategoryMatchesScreen
 import com.hmx.arena.ui.home.AnnouncementScreen
 import com.hmx.arena.ui.home.AnnouncementsScreen
 import com.hmx.arena.ui.home.HomeScreen
@@ -87,7 +88,9 @@ private fun androidx.navigation.NavGraphBuilder.tabDestinations(nav: NavHostCont
                 defaultValue = null
             },
         ),
-    ) { TournamentsScreen(nav) }
+    ) { entry ->
+        TournamentsScreen(nav, entry.arguments?.getString("category"))
+    }
     composable(Routes.MATCHES) { MatchesScreen(nav) }
     composable(Routes.LEADERBOARD) { LeaderboardScreen(nav) }
     composable(Routes.PROFILE) { ProfileScreen(nav) }
@@ -133,6 +136,14 @@ private fun androidx.navigation.NavGraphBuilder.accountDestinations(nav: NavHost
 }
 
 private fun androidx.navigation.NavGraphBuilder.tournamentDestinations(nav: NavHostController) {
+    composable(
+        route = Routes.CATEGORY_MATCHES,
+        arguments = listOf(
+            navArgument("categoryId") { type = NavType.StringType },
+        ),
+    ) { entry ->
+        CategoryMatchesScreen(nav, entry.arguments?.getString("categoryId").orEmpty())
+    }
     composable(Routes.TOURNAMENT) { entry ->
         TournamentDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
     }

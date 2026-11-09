@@ -35,6 +35,8 @@ object Routes {
     const val MANAGE_TEAM = "manage-team"
     const val INVITATIONS = "invitations"
 
+    const val CATEGORY_MATCHES = "category/{categoryId}"
+
     const val TOURNAMENT = "tournament/{id}"
     const val TOURNAMENT_RULES = "tournament/{id}/rules"
     const val TOURNAMENT_PARTICIPANTS = "tournament/{id}/participants"
@@ -64,6 +66,7 @@ object Routes {
     const val ADMIN_ANNOUNCEMENTS = "admin/announcements"
     const val ADMIN_AUDIT = "admin/audit"
 
+    fun categoryMatches(categoryId: String) = "category/$categoryId"
     fun tournament(id: String) = "tournament/$id"
     fun tournaments(categoryId: String? = null) =
         if (categoryId.isNullOrBlank()) TOURNAMENTS else "tournaments?category=$categoryId"

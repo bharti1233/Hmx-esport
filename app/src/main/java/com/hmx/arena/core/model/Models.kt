@@ -170,6 +170,11 @@ data class Match(
     val modeLabel: String get() = gameMode?.name ?: mode?.replaceFirstChar { it.uppercase() } ?: "—"
     val categoryLabel: String get() = category?.name ?: "—"
     val typeLabel: String get() = tournamentType?.name ?: if (entryFeePaise == 0L) "Free Entry" else "Paid Entry"
+
+    /** Admin match number when configured, otherwise a short stable ID reference. */
+    val matchNumberLabel: String
+        get() = matchNumber?.takeIf { it.isNotBlank() }?.let { "Match #$it" }
+            ?: "Match ${id.take(8).uppercase()}"
 }
 
 @Serializable

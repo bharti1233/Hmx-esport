@@ -83,6 +83,43 @@ internal fun publishedMatchQueryParams(limit: Int = 60): Map<String, String> = m
     "select" to MATCH_COLUMNS,
 )
 
+/** Page size for one category tab. Bounded so low-memory phones never pull the whole catalogue. */
+const val CATEGORY_MATCH_PAGE_SIZE = 20
+
+/**
+ * The category is always filtered in PostgREST, never after download. The
+ * section status filter is the same canonical rule used by [matchSectionOf],
+ * so a match can never appear under the wrong tab.
+ */
+internal fun categoryMatchQueryParams(
+    categoryId: String,
+    section: MatchFeedSection,
+    limit: Int = CATEGORY_MATCH_PAGE_SIZE,
+    offset: Int = 0,
+): Map<String, String> = mapOf(
+    "category_id" to "eq.$categoryId",
+    "is_published" to "eq.true",
+    "archived_at" to "is.null",
+    "status" to matchSectionStatusFilter(section),
+    "order" to if (section == MatchFeedSection.COMPLETED) "scheduled_at.desc" else "scheduled_at.asc",
+    "limit" to limit.toString(),
+    "offset" to offset.toString(),
+    "select" to MATCH_COLUMNS,
+)
+
+/** Count query mirrors the list filters, including category and tab status. */
+internal fun categoryMatchCountQueryParams(
+    categoryId: String,
+    section: MatchFeedSection,
+): Map<String, String> = mapOf(
+    "category_id" to "eq.$categoryId",
+    "is_published" to "eq.true",
+    "archived_at" to "is.null",
+    "status" to matchSectionStatusFilter(section),
+    "select" to "id",
+    "limit" to "1",
+)
+
 @Singleton
 class TournamentRepository @Inject constructor(
     private val remote: RemoteDataSource,
@@ -117,6 +154,33 @@ class TournamentRepository @Inject constructor(
         ),
         LookupOption.serializer(),
     )
+
+    /**
+     * Resolves the tapped category by its stable ID. The display name and
+     * artwork are deliberately re-read from the server instead of trusting a
+     * navigation argument that could be a stale label.
+     */
+    suspend fun category(id: String): LookupOption? = remote.selectOne(
+        "categories",
+        mapOf("id" to "eq.$id", "select" to LOOKUP_COLUMNS),
+        LookupOption.serializer(),
+    )
+
+    /** One bounded page of matches that belong to exactly this category. */
+    suspend fun categoryMatches(
+        categoryId: String,
+        section: MatchFeedSection,
+        limit: Int = CATEGORY_MATCH_PAGE_SIZE,
+        offset: Int = 0,
+    ): List<Match> = remote.select(
+        "matches",
+        categoryMatchQueryParams(categoryId, section, limit, offset),
+        Match.serializer(),
+    )
+
+    /** Exact count for the same category + tab filters, or null when unavailable. */
+    suspend fun categoryMatchCount(categoryId: String, section: MatchFeedSection): Int? =
+        remote.count("matches", categoryMatchCountQueryParams(categoryId, section))
 
     suspend fun gameModes(): List<LookupOption> = remote.select(
         "game_modes",

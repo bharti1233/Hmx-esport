@@ -23,6 +23,40 @@ internal fun matchSectionOf(match: Match): MatchFeedSection? = when (match.statu
     else -> null
 }
 
+/**
+ * Canonical PostgREST status filter for a tab. The database is the source of
+ * truth: a screen never decides that a match is "ongoing" from its date alone.
+ */
+internal fun matchSectionStatusFilter(section: MatchFeedSection): String = when (section) {
+    MatchFeedSection.ONGOING -> "in.(live,check_in)"
+    MatchFeedSection.UPCOMING -> "eq.scheduled"
+    MatchFeedSection.COMPLETED -> "eq.completed"
+}
+
+/** Stable tab key shared by the ViewModel, route tests and semantics. */
+internal fun matchSectionKey(section: MatchFeedSection): String = section.name.lowercase()
+
+/**
+ * Picks the first tab that actually has matches once real counts arrive. A
+ * null count means "not queried yet", never zero, so callers cannot flash a
+ * misleading empty count.
+ */
+internal fun preferredMatchSection(counts: Map<MatchFeedSection, Int>?): MatchFeedSection? =
+    counts?.let { values ->
+        MatchFeedSection.entries.firstOrNull { (values[it] ?: 0) > 0 }
+    }
+
+/**
+ * Label for the Arena count row. While the first query is running (or after it
+ * failed) the screen must not claim "0 tournaments"; the real count is only
+ * shown once a response exists.
+ */
+internal fun tournamentCountLabel(count: Int, loading: Boolean, hasError: Boolean): String = when {
+    loading && count == 0 -> "Loading tournaments…"
+    hasError && count == 0 -> "Tournaments unavailable"
+    else -> "$count tournaments"
+}
+
 /** Counts every public match once, using the same rules as the feed groups. */
 internal fun matchSectionCounts(items: List<MatchFeedItem>): Map<MatchFeedSection, Int> =
     MatchFeedSection.entries.associateWith { section ->
