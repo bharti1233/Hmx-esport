@@ -79,6 +79,7 @@ import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.remote.ApiException
 import com.hmx.arena.data.repository.TournamentFilter
 import com.hmx.arena.data.repository.TournamentRepository
+import com.hmx.arena.data.repository.tournamentCountLabel
 import com.hmx.arena.ui.common.ConfirmDialog
 import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
@@ -140,6 +141,18 @@ class TournamentsViewModel @Inject constructor(
         load()
     }
 
+    /**
+     * Follows the category of the *current* nav entry. SavedStateHandle is only
+     * a first value for a brand new entry; a reused destination must not keep
+     * showing the category from a previous visit.
+     */
+    fun applyRouteCategory(categoryId: String?) {
+        val normalised = categoryId?.takeIf { it.isNotBlank() }
+        if (normalised == _ui.value.categoryId) return
+        _ui.update { it.copy(categoryId = normalised) }
+        load()
+    }
+
     fun setGameMode(gameModeId: String?) {
         _ui.update { it.copy(gameModeId = gameModeId) }
         load()
@@ -198,8 +211,13 @@ class TournamentsViewModel @Inject constructor(
 }
 
 @Composable
-fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = hiltViewModel()) {
+fun TournamentsScreen(
+    nav: NavHostController,
+    routeCategoryId: String? = null,
+    viewModel: TournamentsViewModel = hiltViewModel(),
+) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(routeCategoryId) { viewModel.applyRouteCategory(routeCategoryId) }
 
     HmxPage(
         title = "Arena",
@@ -294,9 +312,14 @@ fun TournamentsScreen(nav: NavHostController, viewModel: TournamentsViewModel = 
                 }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
+                val countLabel = tournamentCountLabel(
+                    count = ui.items.size,
+                    loading = ui.loading,
+                    hasError = ui.error != null,
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "${ui.items.size} tournaments",
+                        countLabel,
                         style = MaterialTheme.typography.labelMedium,
                         color = HmxColor.InkTertiary,
                         modifier = Modifier.weight(1f),
