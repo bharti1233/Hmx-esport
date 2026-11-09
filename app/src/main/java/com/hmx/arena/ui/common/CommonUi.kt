@@ -737,6 +737,13 @@ fun MatchFeedCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Text(
+                    match.matchNumberLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = HmxColor.InkTertiary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     listOfNotNull(

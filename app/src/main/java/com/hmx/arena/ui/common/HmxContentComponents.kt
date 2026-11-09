@@ -24,10 +24,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SportsEsports
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -344,8 +349,59 @@ fun HmxMatchShortcutCard(
 }
 
 /**
- * Image-first category tile. Artwork falls back to the square logo and then to
- * a neutral letter tile; the category name is always visible.
+ * Deterministic fallback glyph for an admin-created category. The configured
+ * logo always wins; when no artwork/logo exists we derive a distinct icon from
+ * the stable slug so every card is not reduced to the same trophy.
+ */
+internal enum class CategoryFallbackGlyph {
+    BattleRoyale,
+    ClashSquad,
+    FullMap,
+    SpecialTournament,
+    CustomTournament,
+    Letter,
+}
+
+internal fun categoryFallbackGlyph(slug: String): CategoryFallbackGlyph = when (slug.trim().lowercase()) {
+    "battle-royale" -> CategoryFallbackGlyph.BattleRoyale
+    "clash-squad" -> CategoryFallbackGlyph.ClashSquad
+    "full-map" -> CategoryFallbackGlyph.FullMap
+    "special-tournament" -> CategoryFallbackGlyph.SpecialTournament
+    "custom-tournament" -> CategoryFallbackGlyph.CustomTournament
+    else -> CategoryFallbackGlyph.Letter
+}
+
+/** Two-letter fallback for a category with no configured artwork or logo. */
+internal fun categoryInitials(name: String): String {
+    val words = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return when {
+        words.isEmpty() -> "?"
+        words.size == 1 -> words.first().take(2).uppercase()
+        else -> (words[0].take(1) + words[1].take(1)).uppercase()
+    }
+}
+
+/**
+ * Resolves the images administered for a category. The wide artwork has
+ * priority for the hero/tile canvas and the square logo is used as a badge or
+ * fallback. Blank strings are treated as "not configured" so an empty admin
+ * field can never hide the deterministic fallback.
+ */
+internal data class CategoryVisuals(
+    val artwork: String?,
+    val logo: String?,
+)
+
+internal fun categoryVisuals(imageUrl: String?, logoUrl: String?): CategoryVisuals =
+    CategoryVisuals(
+        artwork = imageUrl?.takeIf { it.isNotBlank() },
+        logo = logoUrl?.takeIf { it.isNotBlank() },
+    )
+
+/**
+ * Image-first category tile. The wide artwork is used when present, then the
+ * admin's square logo, then a deterministic category icon/initial tile. The
+ * category name is always visible.
  */
 @Composable
 fun HmxCategoryArtCard(
@@ -354,6 +410,9 @@ fun HmxCategoryArtCard(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
 ) {
+    val visuals = categoryVisuals(category.imageUrl, category.logoUrl)
+    val artwork = visuals.artwork
+    val logo = visuals.logo
     GlassSurface(
         modifier = modifier
             .then(
@@ -365,16 +424,18 @@ fun HmxCategoryArtCard(
             )
             .clip(HmxShapes.card)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "${category.name} category" },
+            .semantics {
+                contentDescription = category.name + " category" +
+                    if (category.available) "" else ", unavailable"
+            },
         shape = HmxShapes.card,
     ) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(1.12f)) {
-                val artwork = category.artworkUrl
-                if (!artwork.isNullOrBlank()) {
+                if (artwork != null) {
                     AsyncImage(
                         model = artwork,
-                        contentDescription = null,
+                        contentDescription = "${category.name} artwork",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -383,18 +444,25 @@ fun HmxCategoryArtCard(
                         Modifier.fillMaxSize().background(HmxColor.AccentSoft),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            Icons.Rounded.EmojiEvents,
-                            contentDescription = null,
-                            tint = HmxColor.Accent,
-                            modifier = Modifier.size(38.dp),
-                        )
+                        if (logo != null) {
+                            AsyncImage(
+                                model = logo,
+                                contentDescription = "${category.name} logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(HmxColor.CanvasTint),
+                            )
+                        } else {
+                            CategoryFallbackBadge(category)
+                        }
                     }
                 }
-                if (!category.logoUrl.isNullOrBlank()) {
+                if (artwork != null && logo != null) {
                     AsyncImage(
-                        model = category.logoUrl,
-                        contentDescription = null,
+                        model = logo,
+                        contentDescription = "${category.name} logo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -418,6 +486,32 @@ fun HmxCategoryArtCard(
             )
         }
     }
+}
+
+@Composable
+private fun CategoryFallbackBadge(category: LookupOption) {
+    when (categoryFallbackGlyph(category.slug)) {
+        CategoryFallbackGlyph.BattleRoyale -> CategoryFallbackIcon(Icons.Rounded.SportsEsports)
+        CategoryFallbackGlyph.ClashSquad -> CategoryFallbackIcon(Icons.Rounded.Group)
+        CategoryFallbackGlyph.FullMap -> CategoryFallbackIcon(Icons.Rounded.Category)
+        CategoryFallbackGlyph.SpecialTournament -> CategoryFallbackIcon(Icons.Rounded.Star)
+        CategoryFallbackGlyph.CustomTournament -> CategoryFallbackIcon(Icons.Rounded.Tune)
+        CategoryFallbackGlyph.Letter -> Text(
+            categoryInitials(category.name),
+            style = MaterialTheme.typography.headlineSmall,
+            color = HmxColor.Accent,
+        )
+    }
+}
+
+@Composable
+private fun CategoryFallbackIcon(icon: ImageVector) {
+    Icon(
+        icon,
+        contentDescription = null,
+        tint = HmxColor.Accent,
+        modifier = Modifier.size(38.dp),
+    )
 }
 
 /**

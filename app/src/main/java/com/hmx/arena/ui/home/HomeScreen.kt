@@ -1,6 +1,5 @@
 package com.hmx.arena.ui.home
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -19,14 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayCircle
@@ -67,7 +62,6 @@ import com.hmx.arena.core.model.Announcement
 import com.hmx.arena.core.model.LookupOption
 import com.hmx.arena.core.model.Profile
 import com.hmx.arena.core.model.PromotionalBanner
-import com.hmx.arena.core.model.Tournament
 import com.hmx.arena.core.model.WalletAccount
 import com.hmx.arena.core.util.Format
 import com.hmx.arena.data.repository.MatchFeedItem
@@ -75,7 +69,6 @@ import com.hmx.arena.data.repository.MatchFeedSection
 import com.hmx.arena.data.repository.PlayerRepository
 import com.hmx.arena.data.repository.TournamentRepository
 import com.hmx.arena.data.repository.matchSectionCounts
-import com.hmx.arena.ui.common.EmptyBlock
 import com.hmx.arena.ui.common.GlassAvatar
 import com.hmx.arena.ui.common.HmxAnnouncementTicker
 import com.hmx.arena.ui.common.HmxCategoryArtCard
@@ -83,11 +76,8 @@ import com.hmx.arena.ui.common.HmxGlassBottomBar
 import com.hmx.arena.ui.common.HmxMatchShortcutCard
 import com.hmx.arena.ui.common.HmxPage
 import com.hmx.arena.ui.common.HmxPromoCarousel
-import com.hmx.arena.ui.common.HmxReferralCard
 import com.hmx.arena.ui.common.InlineError
 import com.hmx.arena.ui.common.LoadingBlock
-import com.hmx.arena.ui.common.MatchCard
-import com.hmx.arena.ui.common.TournamentCard
 import com.hmx.arena.ui.common.UiState
 import com.hmx.arena.ui.common.hmxMessage
 import com.hmx.arena.ui.navigation.Routes
@@ -103,7 +93,6 @@ import javax.inject.Inject
 
 data class HomeData(
     val profile: Profile,
-    val featured: List<Tournament>,
     val myMatches: List<MatchFeedItem>,
     val announcements: List<Announcement>,
     val banners: List<PromotionalBanner>,
@@ -135,9 +124,6 @@ class HomeViewModel @Inject constructor(
                 // blanking the whole dashboard.
                 coroutineScope {
                     val profile = async { player.myProfile() }
-                    val featured = async {
-                        runCatching { tournaments.featured() }.getOrDefault(emptyList())
-                    }
                     val myMatches = async {
                         runCatching { tournaments.myMatchFeed() }.getOrDefault(emptyList())
                     }
@@ -158,7 +144,6 @@ class HomeViewModel @Inject constructor(
                     }
                     HomeData(
                         profile = profile.await(),
-                        featured = featured.await(),
                         myMatches = myMatches.await(),
                         announcements = announcements.await(),
                         banners = banners.await(),
@@ -265,110 +250,13 @@ fun HomeScreen(
                     CategorySection(
                         categories = data.categories,
                         onCategory = { category ->
-                            // A plain navigate (not openTab) is required here:
-                            // openTab restores the saved entry and would keep the
-                            // previous category argument.
-                            nav.navigate(Routes.tournaments(category.id)) { launchSingleTop = true }
+                            // Category identity is a stable server ID, never a
+                            // display name. A plain navigate (not openTab) creates
+                            // a fresh entry so no previous category state can leak.
+                            nav.navigate(Routes.categoryMatches(category.id))
                         },
                         onArena = { nav.openTab(Routes.TOURNAMENTS) },
                     )
-                }
-                item {
-                    if (data.profile.referralCode.isNullOrBlank()) {
-                        GlassSurface(Modifier.fillMaxWidth()) {
-                            Row(
-                                Modifier.padding(HmxDimens.cardPadding),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Rounded.CardGiftcard,
-                                    contentDescription = null,
-                                    tint = HmxColor.InkTertiary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    "Your invite code has not been issued yet.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = HmxColor.InkSecondary,
-                                )
-                            }
-                        }
-                    } else {
-                        val code = data.profile.referralCode.orEmpty()
-                        val inviteText = "Join HMX Arena and use my invite code $code when you sign up."
-                        HmxReferralCard(
-                            code = code,
-                            onShare = { shareText(context, inviteText) },
-                            onWhatsApp = { shareWhatsApp(context, inviteText) },
-                        )
-                    }
-                }
-                if (data.featured.isNotEmpty()) {
-                    item {
-                        GlassSectionHeader(
-                            title = "Featured arenas",
-                            action = "See all",
-                            onAction = { nav.openTab(Routes.TOURNAMENTS) },
-                        )
-                    }
-                    items(data.featured.take(2), key = { "featured-${it.id}" }) { tournament ->
-                        TournamentCard(
-                            tournament = tournament,
-                            onClick = { nav.navigate(Routes.tournament(tournament.id)) },
-                        )
-                    }
-                }
-                item {
-                    GlassSectionHeader(
-                        title = "Your schedule",
-                        action = "My matches",
-                        onAction = { nav.navigate(Routes.myMatches()) },
-                    )
-                }
-                if (data.myMatches.isEmpty()) {
-                    item {
-                        EmptyBlock(
-                            title = "No match registrations yet",
-                            message = "Register for a published match and it will appear here with its room details.",
-                            icon = Icons.Rounded.EmojiEvents,
-                            actionLabel = "Browse matches",
-                            onAction = { nav.openTab(Routes.MATCHES) },
-                        )
-                    }
-                } else {
-                    items(data.myMatches.take(2), key = { "mine-${it.match.id}" }) { entry ->
-                        MatchCard(
-                            match = entry.match,
-                            tournamentTitle = entry.tournament?.title ?: "Independent match",
-                            onClick = { nav.navigate(Routes.match(entry.match.id)) },
-                        )
-                    }
-                }
-                item {
-                    GlassSectionHeader(
-                        title = "Arena news",
-                        action = "All news",
-                        onAction = { nav.navigate(Routes.ANNOUNCEMENTS) },
-                    )
-                }
-                if (data.announcements.isEmpty()) {
-                    item {
-                        GlassSurface(Modifier.fillMaxWidth()) {
-                            Text(
-                                "Announcements from HMX Arena will appear here.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = HmxColor.InkSecondary,
-                                modifier = Modifier.padding(18.dp),
-                            )
-                        }
-                    }
-                } else {
-                    items(data.announcements.take(2), key = { "news-${it.id}" }) { announcement ->
-                        AnnouncementRow(announcement) {
-                            nav.navigate(Routes.announcement(announcement.id))
-                        }
-                    }
                 }
             }
         }
@@ -517,9 +405,9 @@ private fun CategorySection(
 ) {
     val columns = hmxCategoryColumns(LocalHmxWindowClass.current)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        GlassSectionHeader("Esports game", action = "Arena", onAction = onArena)
+        GlassSectionHeader(HOME_ESPORTS_HEADING, action = "Arena", onAction = onArena)
         Text(
-            "Pick a category to find its matches.",
+            HOME_ESPORTS_DESCRIPTION,
             style = MaterialTheme.typography.bodySmall,
             color = HmxColor.InkSecondary,
         )
@@ -576,37 +464,6 @@ private fun SetupCard(onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun AnnouncementRow(announcement: Announcement, onClick: () -> Unit) {
-    GlassSurface(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    announcement.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = HmxColor.Ink,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    Format.relative(announcement.publishedAt ?: ""),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = HmxColor.InkTertiary,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Text("Read", style = MaterialTheme.typography.labelMedium, color = HmxColor.Ink)
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = HmxColor.InkTertiary,
-                modifier = Modifier.size(16.dp),
-            )
-        }
-    }
-}
-
 private fun openBanner(context: Context, nav: NavHostController, banner: PromotionalBanner) {
     val destination = banner.destination?.trim().orEmpty()
     if (destination.isBlank()) return
@@ -626,26 +483,5 @@ private fun openBanner(context: Context, nav: NavHostController, banner: Promoti
         destination.startsWith("announcement/")
     if (allowed) {
         runCatching { nav.navigate(destination) }
-    }
-}
-
-private fun shareText(context: Context, text: String) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, text)
-    }
-    context.startActivity(Intent.createChooser(intent, "Share invite code"))
-}
-
-private fun shareWhatsApp(context: Context, text: String) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        setPackage("com.whatsapp")
-        putExtra(Intent.EXTRA_TEXT, text)
-    }
-    try {
-        context.startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        shareText(context, text)
     }
 }
